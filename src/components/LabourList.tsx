@@ -437,16 +437,16 @@ const LabourList = ({ refreshTrigger }: LabourListProps) => {
                     className="p-4 cursor-pointer"
                     onClick={() => toggleExpand(labour.name)}
                   >
-                    <div className="flex items-start justify-between gap-4">
-                      <div className="flex-1 min-w-0">
-                        <div className="flex items-center gap-2">
-                          <h3 className="font-semibold text-foreground truncate">
+                    <div className="flex items-start justify-between gap-2 md:gap-4">
+                      <div className="flex-1 min-w-0 overflow-hidden">
+                        <div className="flex items-start gap-2 mb-1">
+                          <h3 className="font-semibold text-sm md:text-base text-foreground break-words line-clamp-2">
                             {labour.name}
                           </h3>
                           {isExpanded ? (
-                            <ChevronUp className="w-4 h-4 text-muted-foreground flex-shrink-0" />
+                            <ChevronUp className="w-4 h-4 text-muted-foreground flex-shrink-0 mt-0.5" />
                           ) : (
-                            <ChevronDown className="w-4 h-4 text-muted-foreground flex-shrink-0" />
+                            <ChevronDown className="w-4 h-4 text-muted-foreground flex-shrink-0 mt-0.5" />
                           )}
                         </div>
                         {!isExpanded && (
@@ -455,10 +455,10 @@ const LabourList = ({ refreshTrigger }: LabourListProps) => {
                           </p>
                         )}
                       </div>
-                      <div className="flex items-center gap-3">
+                      <div className="flex items-center gap-1 md:gap-3 flex-shrink-0">
                         <div className="text-right">
-                          <p className="text-xs text-muted-foreground">Salary</p>
-                          <p className="font-display text-xl font-bold text-accent">
+                          <p className="text-xs text-muted-foreground hidden md:block">Salary</p>
+                          <p className="font-display text-base md:text-xl font-bold text-accent whitespace-nowrap">
                             ₹{labour.total_salary?.toFixed(2) || "0.00"}
                           </p>
                         </div>
@@ -468,9 +468,9 @@ const LabourList = ({ refreshTrigger }: LabourListProps) => {
                               variant="ghost"
                               size="icon"
                               onClick={(e) => e.stopPropagation()}
-                              className="text-muted-foreground hover:text-primary rounded-lg"
+                              className="text-muted-foreground hover:text-primary rounded-lg h-8 w-8 md:h-10 md:w-10"
                             >
-                              <Download className="w-4 h-4" />
+                              <Download className="w-3.5 h-3.5 md:w-4 md:h-4" />
                             </Button>
                           </DropdownMenuTrigger>
                           <DropdownMenuContent>
@@ -495,9 +495,9 @@ const LabourList = ({ refreshTrigger }: LabourListProps) => {
                             e.stopPropagation();
                             openDeleteDialog(labour.name);
                           }}
-                          className="text-muted-foreground hover:text-destructive hover:bg-destructive/10 rounded-lg"
+                          className="text-muted-foreground hover:text-destructive hover:bg-destructive/10 rounded-lg h-8 w-8 md:h-10 md:w-10"
                         >
-                          <Trash2 className="w-4 h-4" />
+                          <Trash2 className="w-3.5 h-3.5 md:w-4 md:h-4" />
                         </Button>
                       </div>
                     </div>

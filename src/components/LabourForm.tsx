@@ -136,15 +136,15 @@ const LabourForm = ({ onLabourAdded }: LabourFormProps) => {
           </div>
 
           <div className="border border-border rounded-lg overflow-hidden">
-            <div className="max-h-[50vh] overflow-y-auto">
-              <table className="w-full">
+            <div className="max-h-[50vh] overflow-y-auto overflow-x-auto">
+              <table className="w-full min-w-[500px]">
                 <thead className="bg-muted/50 sticky top-0 z-10">
                   <tr>
-                    <th className="text-left text-xs font-semibold p-2 w-[15%]">IO</th>
-                    <th className="text-left text-xs font-semibold p-2 w-[30%]">Work</th>
-                    <th className="text-left text-xs font-semibold p-2 w-[18%]">Qty</th>
-                    <th className="text-left text-xs font-semibold p-2 w-[22%]">Rate</th>
-                    <th className="text-right text-xs font-semibold p-2 w-[15%]"></th>
+                    <th className="text-left text-xs font-semibold p-2 min-w-[80px]">IO</th>
+                    <th className="text-left text-xs font-semibold p-2 min-w-[140px]">Work</th>
+                    <th className="text-left text-xs font-semibold p-2 min-w-[80px]">Qty</th>
+                    <th className="text-left text-xs font-semibold p-2 min-w-[90px]">Rate</th>
+                    <th className="text-right text-xs font-semibold p-2 w-[50px]"></th>
                   </tr>
                 </thead>
                 <tbody>
@@ -156,7 +156,7 @@ const LabourForm = ({ onLabourAdded }: LabourFormProps) => {
                           placeholder="IO"
                           value={entry.ioNo}
                           onChange={(e) => updateWorkEntry(entry.id, "ioNo", e.target.value)}
-                          className="h-9 text-xs border-0 focus:ring-1"
+                          className="h-9 text-sm border-0 focus:ring-1 w-full min-w-[70px]"
                         />
                       </td>
                       <td className="p-1.5">
@@ -165,7 +165,7 @@ const LabourForm = ({ onLabourAdded }: LabourFormProps) => {
                           placeholder="Work type"
                           value={entry.workType}
                           onChange={(e) => updateWorkEntry(entry.id, "workType", e.target.value)}
-                          className="h-9 text-xs border-0 focus:ring-1"
+                          className="h-9 text-sm border-0 focus:ring-1 w-full min-w-[130px]"
                         />
                       </td>
                       <td className="p-1.5">
@@ -175,7 +175,7 @@ const LabourForm = ({ onLabourAdded }: LabourFormProps) => {
                           min="0"
                           value={entry.quantity}
                           onChange={(e) => updateWorkEntry(entry.id, "quantity", e.target.value)}
-                          className="h-9 text-xs border-0 focus:ring-1"
+                          className="h-9 text-sm border-0 focus:ring-1 w-full min-w-[70px]"
                         />
                       </td>
                       <td className="p-1.5">
@@ -186,7 +186,7 @@ const LabourForm = ({ onLabourAdded }: LabourFormProps) => {
                           step="0.01"
                           value={entry.rate}
                           onChange={(e) => updateWorkEntry(entry.id, "rate", e.target.value)}
-                          className="h-9 text-xs border-0 focus:ring-1"
+                          className="h-9 text-sm border-0 focus:ring-1 w-full min-w-[80px]"
                         />
                       </td>
                       <td className="p-1.5 text-right">

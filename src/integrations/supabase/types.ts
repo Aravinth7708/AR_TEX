@@ -16,6 +16,7 @@ export type Database = {
     Tables: {
       labours: {
         Row: {
+          advance?: number
           created_at: string
           id: string
           name: string
@@ -26,6 +27,7 @@ export type Database = {
           updated_at: string
         }
         Insert: {
+          advance?: number
           created_at?: string
           id?: string
           name: string
@@ -36,6 +38,7 @@ export type Database = {
           updated_at?: string
         }
         Update: {
+          advance?: number
           created_at?: string
           id?: string
           name?: string

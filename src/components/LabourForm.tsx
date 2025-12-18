@@ -20,6 +20,7 @@ interface WorkEntry {
 
 const LabourForm = ({ onLabourAdded }: LabourFormProps) => {
   const [name, setName] = useState("");
+  const [advance, setAdvance] = useState("");
   const [workEntries, setWorkEntries] = useState<WorkEntry[]>([
     { id: crypto.randomUUID(), ioNo: "", workType: "", quantity: "", rate: "" },
   ]);
@@ -28,6 +29,9 @@ const LabourForm = ({ onLabourAdded }: LabourFormProps) => {
   const totalSalary = workEntries.reduce((total, entry) => {
     return total + (parseFloat(entry.quantity) || 0) * (parseFloat(entry.rate) || 0);
   }, 0);
+
+  const advanceAmount = parseFloat(advance) || 0;
+  const finalSalary = totalSalary - advanceAmount;
 
   const addWorkEntry = () => {
     setWorkEntries([
@@ -64,8 +68,8 @@ const LabourForm = ({ onLabourAdded }: LabourFormProps) => {
     setIsSubmitting(true);
 
     try {
-      const labourData = workEntries.map((entry) => ({
-        name: `${name.trim()} | ${entry.ioNo.trim()} | ${entry.workType.trim()}`,
+      const labourData = workEntries.map((entry, index) => ({
+        name: `${name.trim()} | ${entry.ioNo.trim()} | ${entry.workType.trim()} | ${index === 0 ? advanceAmount.toFixed(2) : '0.00'}`,
         pieces: parseInt(entry.quantity),
         quantity: 1,
         rate_per_piece: parseFloat(entry.rate),
@@ -76,9 +80,10 @@ const LabourForm = ({ onLabourAdded }: LabourFormProps) => {
       if (error) throw error;
 
       toast.success(
-        `${name} added with ${workEntries.length} work(s) - Total: ₹${totalSalary.toFixed(2)}`
+        `${name} added with ${workEntries.length} work(s) - Final: ₹${finalSalary.toFixed(2)}`
       );
       setName("");
+      setAdvance("");
       setWorkEntries([{ id: crypto.randomUUID(), ioNo: "", workType: "", quantity: "", rate: "" }]);
       onLabourAdded();
     } catch (error) {
@@ -106,18 +111,35 @@ const LabourForm = ({ onLabourAdded }: LabourFormProps) => {
       </div>
 
       <form onSubmit={handleSubmit} className="space-y-4 md:space-y-5">
-        <div className="space-y-2">
-          <Label htmlFor="name" className="text-sm md:text-base font-medium">
-            Labour Name
-          </Label>
-          <Input
-            id="name"
-            type="text"
-            placeholder="Enter labour name"
-            value={name}
-            onChange={(e) => setName(e.target.value)}
-            className="input-field h-11"
-          />
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 md:gap-4">
+          <div className="space-y-2">
+            <Label htmlFor="name" className="text-sm md:text-base font-medium">
+              Labour Name
+            </Label>
+            <Input
+              id="name"
+              type="text"
+              placeholder="Enter labour name"
+              value={name}
+              onChange={(e) => setName(e.target.value)}
+              className="input-field h-11"
+            />
+          </div>
+          <div className="space-y-2">
+            <Label htmlFor="advance" className="text-sm md:text-base font-medium">
+              Advance (₹)
+            </Label>
+            <Input
+              id="advance"
+              type="number"
+              placeholder="0.00"
+              min="0"
+              step="0.01"
+              value={advance}
+              onChange={(e) => setAdvance(e.target.value)}
+              className="input-field h-11"
+            />
+          </div>
         </div>
 
         <div className="space-y-2">
@@ -228,7 +250,7 @@ const LabourForm = ({ onLabourAdded }: LabourFormProps) => {
           </div>
         </div>
 
-        <div className="bg-gradient-to-r from-accent/10 to-primary/10 rounded-xl p-4 border-2 border-accent/30">
+        <div className="bg-gradient-to-r from-accent/10 to-primary/10 rounded-xl p-4 border-2 border-accent/30 space-y-3">
           <div className="flex items-center justify-between">
             <div>
               <p className="text-xs md:text-sm font-medium text-foreground">Total Salary</p>
@@ -237,11 +259,29 @@ const LabourForm = ({ onLabourAdded }: LabourFormProps) => {
               </p>
             </div>
             <div className="text-right">
-              <p className="font-display text-2xl md:text-3xl font-bold text-accent">
+              <p className="font-display text-xl md:text-2xl font-bold text-foreground">
                 ₹{totalSalary.toFixed(2)}
               </p>
             </div>
           </div>
+          {advanceAmount > 0 && (
+            <>
+              <div className="border-t border-border/50 pt-2">
+                <div className="flex items-center justify-between text-sm">
+                  <p className="text-muted-foreground">Advance Payment</p>
+                  <p className="font-semibold text-destructive">- ₹{advanceAmount.toFixed(2)}</p>
+                </div>
+              </div>
+              <div className="border-t border-accent/30 pt-2">
+                <div className="flex items-center justify-between">
+                  <p className="text-xs md:text-sm font-semibold text-foreground">Final Amount</p>
+                  <p className="font-display text-2xl md:text-3xl font-bold text-accent">
+                    ₹{finalSalary.toFixed(2)}
+                  </p>
+                </div>
+              </div>
+            </>
+          )}
         </div>
 
         <Button

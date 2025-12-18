@@ -31,6 +31,7 @@ interface Labour {
   quantity: number;
   rate_per_piece: number;
   total_salary: number;
+  advance?: number;
   created_at: string;
 }
 
@@ -42,6 +43,7 @@ interface WorkDetail {
   quantity: number;
   rate_per_piece: number;
   total_salary: number;
+  advance?: number;
 }
 
 interface LabourListProps {
@@ -57,7 +59,7 @@ const LabourList = ({ refreshTrigger }: LabourListProps) => {
   const [deleteAllDialogOpen, setDeleteAllDialogOpen] = useState(false);
   const [labourToDelete, setLabourToDelete] = useState<string | null>(null);
   const [editingWork, setEditingWork] = useState<WorkDetail | null>(null);
-  const [editValues, setEditValues] = useState({ ioNo: "", workType: "", pieces: "", rate: "" });
+  const [editValues, setEditValues] = useState({ ioNo: "", workType: "", pieces: "", rate: "", advance: "" });
   const downloadRefs = useRef<{ [key: string]: HTMLDivElement | null }>({});
 
   const fetchLabours = async () => {
@@ -65,22 +67,29 @@ const LabourList = ({ refreshTrigger }: LabourListProps) => {
     try {
       const { data, error } = await supabase
         .from("labours")
-        .select("*")
+        .select("id, name, pieces, quantity, rate_per_piece, total_salary, created_at")
         .order("created_at", { ascending: false });
 
       if (error) throw error;
       
-      // Store all data for details view
-      setAllLabourData(data || []);
+      // Store all data with advance extracted from name
+      const dataWithAdvance = (data || []).map(labour => {
+        const parts = labour.name.split(' | ');
+        const advance = parseFloat(parts[3] || '0');
+        return { ...labour, advance };
+      });
+      
+      setAllLabourData(dataWithAdvance);
       
       // Group by base labour name (before the pipe)
       const groupedData: { [key: string]: Labour } = {};
-      (data || []).forEach((labour) => {
+      dataWithAdvance.forEach((labour) => {
         const baseName = labour.name.split(' | ')[0];
         if (groupedData[baseName]) {
           groupedData[baseName].total_salary += labour.total_salary || 0;
+          groupedData[baseName].advance = (groupedData[baseName].advance || 0) + (labour.advance || 0);
         } else {
-          groupedData[baseName] = { ...labour, name: baseName };
+          groupedData[baseName] = { ...labour, name: baseName, advance: labour.advance || 0 };
         }
       });
       
@@ -106,6 +115,7 @@ const LabourList = ({ refreshTrigger }: LabourListProps) => {
           quantity: labour.quantity,
           rate_per_piece: labour.rate_per_piece,
           total_salary: labour.total_salary,
+          advance: labour.advance || 0,
         };
       });
   };
@@ -156,12 +166,13 @@ const LabourList = ({ refreshTrigger }: LabourListProps) => {
       workType: work.workType,
       pieces: work.pieces.toString(),
       rate: work.rate_per_piece.toString(),
+      advance: work.advance?.toString() || "0",
     });
   };
 
   const cancelEdit = () => {
     setEditingWork(null);
-    setEditValues({ ioNo: "", workType: "", pieces: "", rate: "" });
+    setEditValues({ ioNo: "", workType: "", pieces: "", rate: "", advance: "" });
   };
 
   const saveEdit = async () => {
@@ -169,10 +180,11 @@ const LabourList = ({ refreshTrigger }: LabourListProps) => {
 
     try {
       const baseName = allLabourData.find(l => l.id === editingWork.id)?.name.split(' | ')[0];
+      const advanceAmount = parseFloat(editValues.advance) || 0;
       const { error } = await supabase
         .from("labours")
         .update({
-          name: `${baseName} | ${editValues.ioNo.trim()} | ${editValues.workType.trim()}`,
+          name: `${baseName} | ${editValues.ioNo.trim()} | ${editValues.workType.trim()} | ${advanceAmount.toFixed(2)}`,
           pieces: parseInt(editValues.pieces),
           rate_per_piece: parseFloat(editValues.rate),
         })
@@ -221,9 +233,9 @@ const LabourList = ({ refreshTrigger }: LabourListProps) => {
       link.click();
 
       toast.success("Downloaded as image");
-    } catch (error: any) {
+    } catch (error) {
       console.error("Error generating image:", error);
-      toast.error(`Failed to generate image: ${error.message || "Unknown error"}`);
+      toast.error(`Failed to generate image: ${error instanceof Error ? error.message : "Unknown error"}`);
     }
   };
 
@@ -277,9 +289,9 @@ const LabourList = ({ refreshTrigger }: LabourListProps) => {
       pdf.save(fileName);
 
       toast.success("Downloaded as PDF");
-    } catch (error: any) {
+    } catch (error) {
       console.error("Error generating PDF:", error);
-      toast.error(`Failed to generate PDF: ${error.message || "Unknown error"}`);
+      toast.error(`Failed to generate PDF: ${error instanceof Error ? error.message : "Unknown error"}`);
     }
   };
 
@@ -298,7 +310,7 @@ const LabourList = ({ refreshTrigger }: LabourListProps) => {
     }
   };
 
-  const totalSalary = labours.reduce((sum, l) => sum + (l.total_salary || 0), 0);
+  const totalPayout = labours.reduce((sum, l) => sum + ((l.total_salary || 0) - (l.advance || 0)), 0);
 
   return (
     <div className="card-elevated p-6 animate-fade-in" style={{ animationDelay: "0.1s" }}>
@@ -418,13 +430,29 @@ const LabourList = ({ refreshTrigger }: LabourListProps) => {
                       </div>
 
                       <div style={{ marginTop: "40px", padding: "25px", backgroundColor: "#f0fdf4", border: "3px solid #16a34a", borderRadius: "12px" }}>
-                        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: labour.advance > 0 ? "15px" : "0" }}>
                           <div>
                             <p style={{ fontSize: "18px", color: "#666", marginBottom: "4px", fontWeight: "600" }}>Total Salary</p>
                             <p style={{ fontSize: "14px", color: "#999" }}>{workDetails.length} work(s) completed</p>
                           </div>
                           <p style={{ fontSize: "42px", fontWeight: "bold", color: "#16a34a" }}>₹{labour.total_salary?.toFixed(2) || "0.00"}</p>
                         </div>
+                        {labour.advance > 0 && (
+                          <>
+                            <div style={{ borderTop: "2px dashed #d1d5db", paddingTop: "15px", marginBottom: "15px" }}>
+                              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                                <p style={{ fontSize: "16px", color: "#666", fontWeight: "600" }}>Advance Payment</p>
+                                <p style={{ fontSize: "24px", fontWeight: "bold", color: "#dc2626" }}>- ₹{labour.advance?.toFixed(2) || "0.00"}</p>
+                              </div>
+                            </div>
+                            <div style={{ borderTop: "3px solid #16a34a", paddingTop: "15px" }}>
+                              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                                <p style={{ fontSize: "18px", color: "#1a1a1a", fontWeight: "700" }}>Final Amount</p>
+                                <p style={{ fontSize: "42px", fontWeight: "bold", color: "#16a34a" }}>₹{((labour.total_salary || 0) - (labour.advance || 0)).toFixed(2)}</p>
+                              </div>
+                            </div>
+                          </>
+                        )}
                       </div>
                     </div>
                   </div>
@@ -437,7 +465,7 @@ const LabourList = ({ refreshTrigger }: LabourListProps) => {
                     className="p-4 cursor-pointer"
                     onClick={() => toggleExpand(labour.name)}
                   >
-                    <div className="flex items-start justify-between gap-2 md:gap-4">
+                      <div className="flex items-start justify-between gap-2 md:gap-4">
                       <div className="flex-1 min-w-0 overflow-hidden">
                         <div className="flex items-start gap-2 mb-1">
                           <h3 className="font-semibold text-sm md:text-base text-foreground break-words line-clamp-2">
@@ -457,10 +485,17 @@ const LabourList = ({ refreshTrigger }: LabourListProps) => {
                       </div>
                       <div className="flex items-center gap-1 md:gap-3 flex-shrink-0">
                         <div className="text-right">
-                          <p className="text-xs text-muted-foreground hidden md:block">Salary</p>
-                          <p className="font-display text-base md:text-xl font-bold text-accent whitespace-nowrap">
-                            ₹{labour.total_salary?.toFixed(2) || "0.00"}
+                          <p className="text-xs text-muted-foreground hidden md:block">
+                            {labour.advance > 0 ? "Final" : "Salary"}
                           </p>
+                          <p className="font-display text-base md:text-xl font-bold text-accent whitespace-nowrap">
+                            ₹{((labour.total_salary || 0) - (labour.advance || 0)).toFixed(2)}
+                          </p>
+                          {labour.advance > 0 && (
+                            <p className="text-xs text-muted-foreground line-through">
+                              ₹{labour.total_salary?.toFixed(2)}
+                            </p>
+                          )}
                         </div>
                         <DropdownMenu>
                           <DropdownMenuTrigger asChild>
@@ -549,6 +584,17 @@ const LabourList = ({ refreshTrigger }: LabourListProps) => {
                                       className="h-8 text-sm"
                                     />
                                   </div>
+                                  <div className="col-span-2 sm:col-span-4">
+                                    <Label className="text-xs">Advance (₹)</Label>
+                                    <Input
+                                      type="number"
+                                      step="0.01"
+                                      value={editValues.advance}
+                                      onChange={(e) => setEditValues({ ...editValues, advance: e.target.value })}
+                                      className="h-8 text-sm"
+                                      placeholder="0.00"
+                                    />
+                                  </div>
                                 </div>
                                 <div className="flex gap-2 justify-end">
                                   <Button size="sm" variant="outline" onClick={cancelEdit}>
@@ -618,6 +664,26 @@ const LabourList = ({ refreshTrigger }: LabourListProps) => {
                           </div>
                         ))}
                       </div>
+                      {labour.advance > 0 && (
+                        <div className="mt-3 pt-3 border-t border-border">
+                          <div className="bg-muted/50 rounded-lg p-3">
+                            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 text-sm">
+                              <div className="text-center sm:text-left">
+                                <p className="text-muted-foreground text-xs mb-1">Total Salary</p>
+                                <p className="font-bold text-base md:text-lg">₹{labour.total_salary?.toFixed(2) || "0.00"}</p>
+                              </div>
+                              <div className="text-center sm:text-left">
+                                <p className="text-muted-foreground text-xs mb-1">Advance Paid</p>
+                                <p className="font-bold text-base md:text-lg text-destructive">- ₹{labour.advance?.toFixed(2) || "0.00"}</p>
+                              </div>
+                              <div className="text-center sm:text-left">
+                                <p className="text-muted-foreground text-xs mb-1">Final Amount</p>
+                                <p className="font-bold text-base md:text-lg text-accent">₹{((labour.total_salary || 0) - (labour.advance || 0)).toFixed(2)}</p>
+                              </div>
+                            </div>
+                          </div>
+                        </div>
+                      )}
                     </div>
                   )}
                   </div>
@@ -631,12 +697,12 @@ const LabourList = ({ refreshTrigger }: LabourListProps) => {
               <div>
                 <p className="text-sm text-muted-foreground">Total Payout</p>
                 <p className="text-xs text-muted-foreground/70">
-                  For all {labours.length} labours
+                  For all {labours.length} labours (after advances)
                 </p>
               </div>
               <div className="text-right">
                 <p className="font-display text-3xl font-bold text-accent">
-                  ₹{totalSalary.toFixed(2)}
+                  ₹{totalPayout.toFixed(2)}
                 </p>
               </div>
             </div>

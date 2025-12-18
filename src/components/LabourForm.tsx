@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Plus, Calculator } from "lucide-react";
+import { Plus, Calculator, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -90,24 +90,24 @@ const LabourForm = ({ onLabourAdded }: LabourFormProps) => {
   };
 
   return (
-    <div className="card-elevated p-6 animate-fade-in">
-      <div className="flex items-center gap-3 mb-6">
+    <div className="card-elevated p-4 md:p-6 animate-fade-in">
+      <div className="flex items-center gap-3 mb-4 md:mb-6">
         <div className="w-10 h-10 rounded-lg gradient-accent flex items-center justify-center">
           <Calculator className="w-5 h-5 text-accent-foreground" />
         </div>
         <div>
-          <h2 className="font-display text-xl font-bold text-foreground">
+          <h2 className="font-display text-lg md:text-xl font-bold text-foreground">
             Add New Labour
           </h2>
-          <p className="text-sm text-muted-foreground">
+          <p className="text-xs md:text-sm text-muted-foreground">
             Calculate and save labour salary
           </p>
         </div>
       </div>
 
-      <form onSubmit={handleSubmit} className="space-y-5">
+      <form onSubmit={handleSubmit} className="space-y-4 md:space-y-5">
         <div className="space-y-2">
-          <Label htmlFor="name" className="text-foreground font-medium">
+          <Label htmlFor="name" className="text-sm md:text-base font-medium">
             Labour Name
           </Label>
           <Input
@@ -116,93 +116,128 @@ const LabourForm = ({ onLabourAdded }: LabourFormProps) => {
             placeholder="Enter labour name"
             value={name}
             onChange={(e) => setName(e.target.value)}
-            className="input-field"
+            className="input-field h-11"
           />
         </div>
 
-        <div className="space-y-4">
-          {workEntries.map((entry) => (
-            <div key={entry.id} className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-3">
-              <div className="space-y-2">
-                <Label className="text-sm">IO No</Label>
-                <Input
-                  type="text"
-                  placeholder="Serial No"
-                  value={entry.ioNo}
-                  onChange={(e) => updateWorkEntry(entry.id, "ioNo", e.target.value)}
-                  className="input-field"
-                />
-              </div>
+        <div className="space-y-2">
+          <div className="flex items-center justify-between mb-2">
+            <Label className="text-sm font-semibold">Work Details ({workEntries.length})</Label>
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              onClick={addWorkEntry}
+              className="h-8 text-xs"
+            >
+              <Plus className="w-3 h-3 mr-1" />
+              Add Work
+            </Button>
+          </div>
 
-              <div className="space-y-2">
-                <Label className="text-sm">Work Type</Label>
-                <Input
-                  type="text"
-                  placeholder="e.g. Stitching"
-                  value={entry.workType}
-                  onChange={(e) => updateWorkEntry(entry.id, "workType", e.target.value)}
-                  className="input-field"
-                />
-              </div>
-
-              <div className="space-y-2">
-                <Label className="text-sm">Quantity</Label>
-                <Input
-                  type="number"
-                  placeholder="0"
-                  min="0"
-                  value={entry.quantity}
-                  onChange={(e) => updateWorkEntry(entry.id, "quantity", e.target.value)}
-                  className="input-field"
-                />
-              </div>
-
-              <div className="space-y-2">
-                <Label className="text-sm">Rate (₹)</Label>
-                <Input
-                  type="number"
-                  placeholder="0.00"
-                  min="0"
-                  step="0.01"
-                  value={entry.rate}
-                  onChange={(e) => updateWorkEntry(entry.id, "rate", e.target.value)}
-                  className="input-field"
-                />
-              </div>
-
-              <div className="space-y-2">
-                <Label className="text-sm">Subtotal</Label>
-                <div className="h-10 px-3 flex items-center bg-muted/50 rounded-md border border-border">
-                  <span className="text-sm font-semibold text-accent">
-                    ₹{((parseFloat(entry.quantity) || 0) * (parseFloat(entry.rate) || 0)).toFixed(2)}
-                  </span>
-                </div>
-              </div>
+          <div className="border border-border rounded-lg overflow-hidden">
+            <div className="max-h-[50vh] overflow-y-auto">
+              <table className="w-full">
+                <thead className="bg-muted/50 sticky top-0 z-10">
+                  <tr>
+                    <th className="text-left text-xs font-semibold p-2 w-[15%]">IO</th>
+                    <th className="text-left text-xs font-semibold p-2 w-[30%]">Work</th>
+                    <th className="text-left text-xs font-semibold p-2 w-[18%]">Qty</th>
+                    <th className="text-left text-xs font-semibold p-2 w-[22%]">Rate</th>
+                    <th className="text-right text-xs font-semibold p-2 w-[15%]"></th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {workEntries.map((entry, index) => (
+                    <tr key={entry.id} className="border-t border-border">
+                      <td className="p-1.5">
+                        <Input
+                          type="text"
+                          placeholder="IO"
+                          value={entry.ioNo}
+                          onChange={(e) => updateWorkEntry(entry.id, "ioNo", e.target.value)}
+                          className="h-9 text-xs border-0 focus:ring-1"
+                        />
+                      </td>
+                      <td className="p-1.5">
+                        <Input
+                          type="text"
+                          placeholder="Work type"
+                          value={entry.workType}
+                          onChange={(e) => updateWorkEntry(entry.id, "workType", e.target.value)}
+                          className="h-9 text-xs border-0 focus:ring-1"
+                        />
+                      </td>
+                      <td className="p-1.5">
+                        <Input
+                          type="number"
+                          placeholder="0"
+                          min="0"
+                          value={entry.quantity}
+                          onChange={(e) => updateWorkEntry(entry.id, "quantity", e.target.value)}
+                          className="h-9 text-xs border-0 focus:ring-1"
+                        />
+                      </td>
+                      <td className="p-1.5">
+                        <Input
+                          type="number"
+                          placeholder="0.00"
+                          min="0"
+                          step="0.01"
+                          value={entry.rate}
+                          onChange={(e) => updateWorkEntry(entry.id, "rate", e.target.value)}
+                          className="h-9 text-xs border-0 focus:ring-1"
+                        />
+                      </td>
+                      <td className="p-1.5 text-right">
+                        {workEntries.length > 1 && (
+                          <Button
+                            type="button"
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => setWorkEntries(workEntries.filter(e => e.id !== entry.id))}
+                            className="h-7 w-7 p-0 text-destructive"
+                          >
+                            <X className="w-3.5 h-3.5" />
+                          </Button>
+                        )}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
             </div>
-          ))}
+          </div>
 
-          <Button
-            type="button"
-            variant="outline"
-            size="sm"
-            onClick={addWorkEntry}
-            className="w-full sm:w-auto"
-          >
-            <Plus className="w-4 h-4 mr-2" />
-            Add Another Work
-          </Button>
+          <div className="grid grid-cols-2 gap-2 mt-2">
+            {workEntries.slice(0, 3).map((entry, index) => (
+              <div key={index} className="bg-muted/30 rounded-md p-2 flex items-center justify-between">
+                <span className="text-xs text-muted-foreground">#{index + 1}</span>
+                <span className="text-xs font-semibold text-accent">
+                  ₹{((parseFloat(entry.quantity) || 0) * (parseFloat(entry.rate) || 0)).toFixed(2)}
+                </span>
+              </div>
+            ))}
+            {workEntries.length > 3 && (
+              <div className="bg-muted/30 rounded-md p-2 flex items-center justify-center col-span-2">
+                <span className="text-xs text-muted-foreground">
+                  +{workEntries.length - 3} more works
+                </span>
+              </div>
+            )}
+          </div>
         </div>
 
-        <div className="bg-muted/50 rounded-xl p-4 border border-border">
+        <div className="bg-gradient-to-r from-accent/10 to-primary/10 rounded-xl p-4 border-2 border-accent/30">
           <div className="flex items-center justify-between">
             <div>
-              <p className="text-sm text-muted-foreground">Total Salary</p>
-              <p className="text-xs text-muted-foreground/80">
-                ({workEntries.length} work{workEntries.length > 1 ? 's' : ''})
+              <p className="text-xs md:text-sm font-medium text-foreground">Total Salary</p>
+              <p className="text-xs text-muted-foreground">
+                {workEntries.length} work{workEntries.length > 1 ? 's' : ''}
               </p>
             </div>
             <div className="text-right">
-              <p className="font-display text-3xl font-bold text-accent">
+              <p className="font-display text-2xl md:text-3xl font-bold text-accent">
                 ₹{totalSalary.toFixed(2)}
               </p>
             </div>
@@ -212,7 +247,7 @@ const LabourForm = ({ onLabourAdded }: LabourFormProps) => {
         <Button
           type="submit"
           disabled={isSubmitting}
-          className="w-full btn-primary flex items-center justify-center gap-2"
+          className="w-full h-12 btn-primary flex items-center justify-center gap-2 text-base font-semibold"
         >
           <Plus className="w-5 h-5" />
           {isSubmitting ? "Adding..." : "Add Labour"}

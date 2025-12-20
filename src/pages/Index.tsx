@@ -2,6 +2,7 @@ import { useState } from "react";
 import Header from "@/components/Header";
 import LabourForm from "@/components/LabourForm";
 import LabourList from "@/components/LabourList";
+import WeeklyReport from "@/components/WeeklyReport";
 
 const Index = () => {
   const [refreshTrigger, setRefreshTrigger] = useState(0);
@@ -14,10 +15,18 @@ const Index = () => {
     <div className="min-h-screen bg-background">
       <Header />
       
-      <main className="container mx-auto px-4 py-8">
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 max-w-6xl mx-auto">
-          <LabourForm onLabourAdded={handleLabourAdded} />
-          <LabourList refreshTrigger={refreshTrigger} />
+      <main className="container mx-auto px-4 py-6 md:py-8">
+        <div className="space-y-6 md:space-y-8 max-w-7xl mx-auto">
+          {/* Form and List Section */}
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 md:gap-8">
+            <LabourForm onLabourAdded={handleLabourAdded} />
+            <LabourList refreshTrigger={refreshTrigger} />
+          </div>
+          
+          {/* Weekly Report Section */}
+          <div className="w-full">
+            <WeeklyReport />
+          </div>
         </div>
       </main>
 

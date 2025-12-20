@@ -25,6 +25,9 @@ interface Labour {
   name: string;
   total_salary: number;
   advance: number;
+  esi_bf_amount?: number;
+  last_week_balance?: number;
+  extra_amount?: number;
   created_at: string;
 }
 
@@ -35,11 +38,17 @@ interface WeeklySummary {
     name: string;
     totalSalary: number;
     advance: number;
+    esiBfAmount: number;
+    lastWeekBalance: number;
+    extraAmount: number;
     finalAmount: number;
     worksCount: number;
   }[];
   totalSalary: number;
   totalAdvance: number;
+  totalEsiBf: number;
+  totalLastWeekBalance: number;
+  totalExtraAmount: number;
   totalPayout: number;
 }
 
@@ -68,7 +77,7 @@ const WeeklyReport = () => {
     try {
       const { data, error } = await supabase
         .from("labours")
-        .select("id, name, total_salary, created_at")
+        .select("*")
         .order("created_at", { ascending: false });
 
       if (error) throw error;
@@ -87,7 +96,17 @@ const WeeklyReport = () => {
         
         const parts = labour.name.split(' | ');
         const advance = parseFloat(parts[3] || '0');
-        weeklyMap.get(weekKey)!.push({ ...labour, advance });
+        const esiBf = parseFloat(parts[4] || '0');
+        const lastWeekBal = parseFloat(parts[5] || '0');
+        const extra = parseFloat(parts[6] || '0');
+        
+        weeklyMap.get(weekKey)!.push({ 
+          ...labour, 
+          advance,
+          esi_bf_amount: labour.esi_bf_amount || esiBf || 0,
+          last_week_balance: labour.last_week_balance || lastWeekBal || 0,
+          extra_amount: labour.extra_amount || extra || 0
+        });
       });
 
       // Create weekly summaries
@@ -102,6 +121,9 @@ const WeeklyReport = () => {
         const labourMap = new Map<string, {
           totalSalary: number;
           advance: number;
+          esiBfAmount: number;
+          lastWeekBalance: number;
+          extraAmount: number;
           worksCount: number;
         }>();
 
@@ -112,6 +134,9 @@ const WeeklyReport = () => {
             labourMap.set(baseName, {
               totalSalary: 0,
               advance: 0,
+              esiBfAmount: 0,
+              lastWeekBalance: 0,
+              extraAmount: 0,
               worksCount: 0,
             });
           }
@@ -119,6 +144,9 @@ const WeeklyReport = () => {
           const labourData = labourMap.get(baseName)!;
           labourData.totalSalary += labour.total_salary || 0;
           labourData.advance += labour.advance || 0;
+          labourData.esiBfAmount += labour.esi_bf_amount || 0;
+          labourData.lastWeekBalance += labour.last_week_balance || 0;
+          labourData.extraAmount += labour.extra_amount || 0;
           labourData.worksCount += 1;
         });
 
@@ -126,13 +154,19 @@ const WeeklyReport = () => {
           name,
           totalSalary: data.totalSalary,
           advance: data.advance,
-          finalAmount: data.totalSalary - data.advance,
+          esiBfAmount: data.esiBfAmount,
+          lastWeekBalance: data.lastWeekBalance,
+          extraAmount: data.extraAmount,
+          finalAmount: data.totalSalary - data.advance - data.esiBfAmount + data.lastWeekBalance + data.extraAmount,
           worksCount: data.worksCount,
         }));
 
         const totalSalary = laboursList.reduce((sum, l) => sum + l.totalSalary, 0);
         const totalAdvance = laboursList.reduce((sum, l) => sum + l.advance, 0);
-        const totalPayout = totalSalary - totalAdvance;
+        const totalEsiBf = laboursList.reduce((sum, l) => sum + l.esiBfAmount, 0);
+        const totalLastWeekBalance = laboursList.reduce((sum, l) => sum + l.lastWeekBalance, 0);
+        const totalExtraAmount = laboursList.reduce((sum, l) => sum + l.extraAmount, 0);
+        const totalPayout = totalSalary - totalAdvance - totalEsiBf + totalLastWeekBalance + totalExtraAmount;
 
         summaries.push({
           weekStart,
@@ -140,6 +174,9 @@ const WeeklyReport = () => {
           labours: laboursList,
           totalSalary,
           totalAdvance,
+          totalEsiBf,
+          totalLastWeekBalance,
+          totalExtraAmount,
           totalPayout,
         });
       });
@@ -356,67 +393,96 @@ const WeeklyReport = () => {
               {/* Summary Cards */}
               <div style={{
                 display: 'grid',
-                gridTemplateColumns: 'repeat(4, 1fr)',
-                gap: '24px',
-                marginBottom: '40px'
+                gridTemplateColumns: 'repeat(3, 1fr)',
+                gap: '20px',
+                marginBottom: '30px'
               }}>
                 <div style={{
-                  padding: '24px',
+                  padding: '20px',
                   backgroundColor: '#f0f9ff',
                   border: '2px solid #3b82f6',
-                  borderRadius: '16px',
+                  borderRadius: '12px',
                   textAlign: 'center'
                 }}>
-                  <div style={{ fontSize: '16px', color: '#666', marginBottom: '8px', fontWeight: '500' }}>
+                  <div style={{ fontSize: '14px', color: '#666', marginBottom: '6px', fontWeight: '500' }}>
                     Total Labours
                   </div>
-                  <div style={{ fontSize: '42px', fontWeight: '800', color: '#3b82f6' }}>
+                  <div style={{ fontSize: '36px', fontWeight: '800', color: '#3b82f6' }}>
                     {currentSummary.labours.length}
                   </div>
                 </div>
                 <div style={{
-                  padding: '24px',
+                  padding: '20px',
                   backgroundColor: '#f0fdf4',
                   border: '2px solid #22c55e',
-                  borderRadius: '16px',
+                  borderRadius: '12px',
                   textAlign: 'center'
                 }}>
-                  <div style={{ fontSize: '16px', color: '#666', marginBottom: '8px', fontWeight: '500' }}>
+                  <div style={{ fontSize: '14px', color: '#666', marginBottom: '6px', fontWeight: '500' }}>
                     Total Salary
                   </div>
-                  <div style={{ fontSize: '42px', fontWeight: '800', color: '#22c55e' }}>
+                  <div style={{ fontSize: '36px', fontWeight: '800', color: '#22c55e' }}>
                     ₹{currentSummary.totalSalary.toFixed(2)}
                   </div>
                 </div>
                 <div style={{
-                  padding: '24px',
-                  backgroundColor: '#fef2f2',
-                  border: '2px solid #ef4444',
-                  borderRadius: '16px',
-                  textAlign: 'center'
-                }}>
-                  <div style={{ fontSize: '16px', color: '#666', marginBottom: '8px', fontWeight: '500' }}>
-                    Total Advance
-                  </div>
-                  <div style={{ fontSize: '42px', fontWeight: '800', color: '#ef4444' }}>
-                    ₹{currentSummary.totalAdvance.toFixed(2)}
-                  </div>
-                </div>
-                <div style={{
-                  padding: '24px',
+                  padding: '20px',
                   backgroundColor: '#fffbeb',
                   border: '3px solid #f59e0b',
-                  borderRadius: '16px',
+                  borderRadius: '12px',
                   textAlign: 'center'
                 }}>
-                  <div style={{ fontSize: '16px', color: '#666', marginBottom: '8px', fontWeight: '600' }}>
+                  <div style={{ fontSize: '14px', color: '#666', marginBottom: '6px', fontWeight: '600' }}>
                     Final Payout
                   </div>
-                  <div style={{ fontSize: '48px', fontWeight: '900', color: '#f59e0b' }}>
+                  <div style={{ fontSize: '42px', fontWeight: '900', color: '#f59e0b' }}>
                     ₹{currentSummary.totalPayout.toFixed(2)}
                   </div>
                 </div>
               </div>
+
+              {/* Deductions Summary */}
+              {(currentSummary.totalAdvance > 0 || currentSummary.totalEsiBf > 0 || currentSummary.totalLastWeekBalance !== 0 || currentSummary.totalExtraAmount !== 0) && (
+                <div style={{
+                  display: 'grid',
+                  gridTemplateColumns: 'repeat(4, 1fr)',
+                  gap: '16px',
+                  marginBottom: '30px',
+                  padding: '20px',
+                  backgroundColor: '#f9fafb',
+                  borderRadius: '12px',
+                  border: '2px solid #e5e7eb'
+                }}>
+                  {currentSummary.totalAdvance > 0 && (
+                    <div style={{ textAlign: 'center' }}>
+                      <div style={{ fontSize: '12px', color: '#666', marginBottom: '4px' }}>Advance Paid</div>
+                      <div style={{ fontSize: '20px', fontWeight: '700', color: '#ef4444' }}>- ₹{currentSummary.totalAdvance.toFixed(2)}</div>
+                    </div>
+                  )}
+                  {currentSummary.totalEsiBf > 0 && (
+                    <div style={{ textAlign: 'center' }}>
+                      <div style={{ fontSize: '12px', color: '#666', marginBottom: '4px' }}>ESI/BF Deduction</div>
+                      <div style={{ fontSize: '20px', fontWeight: '700', color: '#ef4444' }}>- ₹{currentSummary.totalEsiBf.toFixed(2)}</div>
+                    </div>
+                  )}
+                  {currentSummary.totalLastWeekBalance !== 0 && (
+                    <div style={{ textAlign: 'center' }}>
+                      <div style={{ fontSize: '12px', color: '#666', marginBottom: '4px' }}>Last Week Balance</div>
+                      <div style={{ fontSize: '20px', fontWeight: '700', color: currentSummary.totalLastWeekBalance >= 0 ? '#22c55e' : '#ef4444' }}>
+                        {currentSummary.totalLastWeekBalance >= 0 ? '+' : ''} ₹{currentSummary.totalLastWeekBalance.toFixed(2)}
+                      </div>
+                    </div>
+                  )}
+                  {currentSummary.totalExtraAmount !== 0 && (
+                    <div style={{ textAlign: 'center' }}>
+                      <div style={{ fontSize: '12px', color: '#666', marginBottom: '4px' }}>Extra Amount</div>
+                      <div style={{ fontSize: '20px', fontWeight: '700', color: currentSummary.totalExtraAmount >= 0 ? '#22c55e' : '#ef4444' }}>
+                        {currentSummary.totalExtraAmount >= 0 ? '+' : ''} ₹{currentSummary.totalExtraAmount.toFixed(2)}
+                      </div>
+                    </div>
+                  )}
+                </div>
+              )}
 
               {/* Labour Details Table */}
               <div style={{ marginBottom: '40px' }}>
@@ -430,44 +496,68 @@ const WeeklyReport = () => {
                   <thead>
                     <tr style={{ backgroundColor: '#f59e0b' }}>
                       <th style={{
-                        padding: '20px',
+                        padding: '16px',
                         textAlign: 'left',
-                        fontSize: '18px',
+                        fontSize: '15px',
                         fontWeight: '700',
                         color: '#ffffff',
                         borderRight: '2px solid #ffffff'
                       }}>Labour Name</th>
                       <th style={{
-                        padding: '20px',
+                        padding: '16px',
                         textAlign: 'center',
-                        fontSize: '18px',
+                        fontSize: '15px',
                         fontWeight: '700',
                         color: '#ffffff',
                         borderRight: '2px solid #ffffff'
                       }}>Works</th>
                       <th style={{
-                        padding: '20px',
+                        padding: '16px',
                         textAlign: 'right',
-                        fontSize: '18px',
+                        fontSize: '15px',
                         fontWeight: '700',
                         color: '#ffffff',
                         borderRight: '2px solid #ffffff'
-                      }}>Total Salary</th>
+                      }}>Salary</th>
                       <th style={{
-                        padding: '20px',
+                        padding: '16px',
                         textAlign: 'right',
-                        fontSize: '18px',
+                        fontSize: '15px',
                         fontWeight: '700',
                         color: '#ffffff',
                         borderRight: '2px solid #ffffff'
                       }}>Advance</th>
                       <th style={{
-                        padding: '20px',
+                        padding: '16px',
                         textAlign: 'right',
-                        fontSize: '18px',
+                        fontSize: '15px',
+                        fontWeight: '700',
+                        color: '#ffffff',
+                        borderRight: '2px solid #ffffff'
+                      }}>ESI/BF</th>
+                      <th style={{
+                        padding: '16px',
+                        textAlign: 'right',
+                        fontSize: '15px',
+                        fontWeight: '700',
+                        color: '#ffffff',
+                        borderRight: '2px solid #ffffff'
+                      }}>Lst Wk Bal</th>
+                      <th style={{
+                        padding: '16px',
+                        textAlign: 'right',
+                        fontSize: '15px',
+                        fontWeight: '700',
+                        color: '#ffffff',
+                        borderRight: '2px solid #ffffff'
+                      }}>Extra</th>
+                      <th style={{
+                        padding: '16px',
+                        textAlign: 'right',
+                        fontSize: '15px',
                         fontWeight: '700',
                         color: '#ffffff'
-                      }}>Final Amount</th>
+                      }}>Final</th>
                     </tr>
                   </thead>
                   <tbody>
@@ -477,39 +567,63 @@ const WeeklyReport = () => {
                         borderBottom: '2px solid #e5e7eb'
                       }}>
                         <td style={{
-                          padding: '18px 20px',
-                          fontSize: '17px',
+                          padding: '14px 16px',
+                          fontSize: '15px',
                           fontWeight: '600',
                           color: '#1a1a1a',
                           borderRight: '1px solid #e5e7eb'
                         }}>{labour.name}</td>
                         <td style={{
-                          padding: '18px 20px',
-                          fontSize: '17px',
+                          padding: '14px 16px',
+                          fontSize: '15px',
                           fontWeight: '500',
                           color: '#666',
                           textAlign: 'center',
                           borderRight: '1px solid #e5e7eb'
                         }}>{labour.worksCount}</td>
                         <td style={{
-                          padding: '18px 20px',
-                          fontSize: '18px',
+                          padding: '14px 16px',
+                          fontSize: '15px',
                           fontWeight: '700',
                           color: '#22c55e',
                           textAlign: 'right',
                           borderRight: '1px solid #e5e7eb'
                         }}>₹{labour.totalSalary.toFixed(2)}</td>
                         <td style={{
-                          padding: '18px 20px',
-                          fontSize: '18px',
+                          padding: '14px 16px',
+                          fontSize: '15px',
                           fontWeight: '700',
                           color: '#ef4444',
                           textAlign: 'right',
                           borderRight: '1px solid #e5e7eb'
-                        }}>{labour.advance > 0 ? `₹${labour.advance.toFixed(2)}` : '-'}</td>
+                        }}>{labour.advance > 0 ? `- ₹${labour.advance.toFixed(2)}` : '-'}</td>
                         <td style={{
-                          padding: '18px 20px',
-                          fontSize: '20px',
+                          padding: '14px 16px',
+                          fontSize: '15px',
+                          fontWeight: '700',
+                          color: '#ef4444',
+                          textAlign: 'right',
+                          borderRight: '1px solid #e5e7eb'
+                        }}>{labour.esiBfAmount > 0 ? `- ₹${labour.esiBfAmount.toFixed(2)}` : '-'}</td>
+                        <td style={{
+                          padding: '14px 16px',
+                          fontSize: '15px',
+                          fontWeight: '700',
+                          color: labour.lastWeekBalance >= 0 ? '#22c55e' : '#ef4444',
+                          textAlign: 'right',
+                          borderRight: '1px solid #e5e7eb'
+                        }}>{labour.lastWeekBalance !== 0 ? `${labour.lastWeekBalance >= 0 ? '+' : ''} ₹${labour.lastWeekBalance.toFixed(2)}` : '-'}</td>
+                        <td style={{
+                          padding: '14px 16px',
+                          fontSize: '15px',
+                          fontWeight: '700',
+                          color: labour.extraAmount >= 0 ? '#22c55e' : '#ef4444',
+                          textAlign: 'right',
+                          borderRight: '1px solid #e5e7eb'
+                        }}>{labour.extraAmount !== 0 ? `${labour.extraAmount >= 0 ? '+' : ''} ₹${labour.extraAmount.toFixed(2)}` : '-'}</td>
+                        <td style={{
+                          padding: '14px 16px',
+                          fontSize: '17px',
                           fontWeight: '800',
                           color: '#f59e0b',
                           textAlign: 'right'
@@ -523,39 +637,63 @@ const WeeklyReport = () => {
                       borderTop: '4px solid #f59e0b'
                     }}>
                       <td style={{
-                        padding: '22px 20px',
-                        fontSize: '20px',
+                        padding: '18px 16px',
+                        fontSize: '17px',
                         fontWeight: '800',
                         color: '#1a1a1a',
                         borderRight: '1px solid #f59e0b'
                       }}>TOTAL</td>
                       <td style={{
-                        padding: '22px 20px',
-                        fontSize: '18px',
+                        padding: '18px 16px',
+                        fontSize: '16px',
                         fontWeight: '700',
                         color: '#1a1a1a',
                         textAlign: 'center',
                         borderRight: '1px solid #f59e0b'
                       }}>{currentSummary.labours.reduce((sum, l) => sum + l.worksCount, 0)}</td>
                       <td style={{
-                        padding: '22px 20px',
-                        fontSize: '20px',
+                        padding: '18px 16px',
+                        fontSize: '17px',
                         fontWeight: '800',
                         color: '#22c55e',
                         textAlign: 'right',
                         borderRight: '1px solid #f59e0b'
                       }}>₹{currentSummary.totalSalary.toFixed(2)}</td>
                       <td style={{
-                        padding: '22px 20px',
-                        fontSize: '20px',
+                        padding: '18px 16px',
+                        fontSize: '17px',
                         fontWeight: '800',
                         color: '#ef4444',
                         textAlign: 'right',
                         borderRight: '1px solid #f59e0b'
-                      }}>₹{currentSummary.totalAdvance.toFixed(2)}</td>
+                      }}>{currentSummary.totalAdvance > 0 ? `- ₹${currentSummary.totalAdvance.toFixed(2)}` : '-'}</td>
                       <td style={{
-                        padding: '22px 20px',
-                        fontSize: '24px',
+                        padding: '18px 16px',
+                        fontSize: '17px',
+                        fontWeight: '800',
+                        color: '#ef4444',
+                        textAlign: 'right',
+                        borderRight: '1px solid #f59e0b'
+                      }}>{currentSummary.totalEsiBf > 0 ? `- ₹${currentSummary.totalEsiBf.toFixed(2)}` : '-'}</td>
+                      <td style={{
+                        padding: '18px 16px',
+                        fontSize: '17px',
+                        fontWeight: '800',
+                        color: currentSummary.totalLastWeekBalance >= 0 ? '#22c55e' : '#ef4444',
+                        textAlign: 'right',
+                        borderRight: '1px solid #f59e0b'
+                      }}>{currentSummary.totalLastWeekBalance !== 0 ? `${currentSummary.totalLastWeekBalance >= 0 ? '+' : ''} ₹${currentSummary.totalLastWeekBalance.toFixed(2)}` : '-'}</td>
+                      <td style={{
+                        padding: '18px 16px',
+                        fontSize: '17px',
+                        fontWeight: '800',
+                        color: currentSummary.totalExtraAmount >= 0 ? '#22c55e' : '#ef4444',
+                        textAlign: 'right',
+                        borderRight: '1px solid #f59e0b'
+                      }}>{currentSummary.totalExtraAmount !== 0 ? `${currentSummary.totalExtraAmount >= 0 ? '+' : ''} ₹${currentSummary.totalExtraAmount.toFixed(2)}` : '-'}</td>
+                      <td style={{
+                        padding: '18px 16px',
+                        fontSize: '20px',
                         fontWeight: '900',
                         color: '#f59e0b',
                         textAlign: 'right'
@@ -683,8 +821,17 @@ const WeeklyReport = () => {
                       <th className="text-right p-2 md:p-4 text-[10px] md:text-sm font-semibold text-foreground">
                         Salary
                       </th>
-                      <th className="text-right p-2 md:p-4 text-[10px] md:text-sm font-semibold text-foreground hidden md:table-cell">
+                      <th className="text-right p-2 md:p-4 text-[10px] md:text-sm font-semibold text-foreground hidden lg:table-cell">
                         Advance
+                      </th>
+                      <th className="text-right p-2 md:p-4 text-[10px] md:text-sm font-semibold text-foreground hidden lg:table-cell">
+                        ESI/BF
+                      </th>
+                      <th className="text-right p-2 md:p-4 text-[10px] md:text-sm font-semibold text-foreground hidden xl:table-cell">
+                        Lst Wk Bal
+                      </th>
+                      <th className="text-right p-2 md:p-4 text-[10px] md:text-sm font-semibold text-foreground hidden xl:table-cell">
+                        Extra
                       </th>
                       <th className="text-right p-2 md:p-4 text-[10px] md:text-sm font-semibold text-foreground">
                         Final
@@ -702,14 +849,13 @@ const WeeklyReport = () => {
                             <p className="font-medium text-xs md:text-base text-foreground line-clamp-1">
                               {labour.name}
                             </p>
-                            <p className="text-[10px] text-muted-foreground sm:hidden">
-                              {labour.worksCount}w
-                            </p>
-                            {labour.advance > 0 && (
-                              <p className="text-[10px] text-red-500 md:hidden">
-                                A:₹{labour.advance.toFixed(0)}
-                              </p>
-                            )}
+                            <div className="flex gap-2 text-[10px] text-muted-foreground sm:hidden flex-wrap">
+                              <span>{labour.worksCount}w</span>
+                              {labour.advance > 0 && <span className="text-red-500">-A:₹{labour.advance.toFixed(0)}</span>}
+                              {labour.esiBfAmount > 0 && <span className="text-red-500">-E:₹{labour.esiBfAmount.toFixed(0)}</span>}
+                              {labour.lastWeekBalance !== 0 && <span className={labour.lastWeekBalance >= 0 ? 'text-green-600' : 'text-red-500'}>L:{labour.lastWeekBalance >= 0 ? '+' : ''}₹{labour.lastWeekBalance.toFixed(0)}</span>}
+                              {labour.extraAmount !== 0 && <span className={labour.extraAmount >= 0 ? 'text-green-600' : 'text-red-500'}>X:{labour.extraAmount >= 0 ? '+' : ''}₹{labour.extraAmount.toFixed(0)}</span>}
+                            </div>
                           </div>
                         </td>
                         <td className="p-2 md:p-4 text-center text-xs md:text-base text-muted-foreground hidden sm:table-cell">
@@ -718,8 +864,17 @@ const WeeklyReport = () => {
                         <td className="p-2 md:p-4 text-right font-semibold text-xs md:text-base text-green-600">
                           ₹{labour.totalSalary.toFixed(0)}
                         </td>
-                        <td className="p-2 md:p-4 text-right font-semibold text-xs md:text-base text-red-500 hidden md:table-cell">
-                          {labour.advance > 0 ? `₹${labour.advance.toFixed(0)}` : '-'}
+                        <td className="p-2 md:p-4 text-right font-semibold text-xs md:text-base text-red-500 hidden lg:table-cell">
+                          {labour.advance > 0 ? `- ₹${labour.advance.toFixed(0)}` : '-'}
+                        </td>
+                        <td className="p-2 md:p-4 text-right font-semibold text-xs md:text-base text-red-500 hidden lg:table-cell">
+                          {labour.esiBfAmount > 0 ? `- ₹${labour.esiBfAmount.toFixed(0)}` : '-'}
+                        </td>
+                        <td className={`p-2 md:p-4 text-right font-semibold text-xs md:text-base hidden xl:table-cell ${labour.lastWeekBalance >= 0 ? 'text-green-600' : 'text-red-500'}`}>
+                          {labour.lastWeekBalance !== 0 ? `${labour.lastWeekBalance >= 0 ? '+' : ''} ₹${labour.lastWeekBalance.toFixed(0)}` : '-'}
+                        </td>
+                        <td className={`p-2 md:p-4 text-right font-semibold text-xs md:text-base hidden xl:table-cell ${labour.extraAmount >= 0 ? 'text-green-600' : 'text-red-500'}`}>
+                          {labour.extraAmount !== 0 ? `${labour.extraAmount >= 0 ? '+' : ''} ₹${labour.extraAmount.toFixed(0)}` : '-'}
                         </td>
                         <td className="p-2 md:p-4 text-right font-bold text-xs md:text-base text-accent">
                           ₹{labour.finalAmount.toFixed(0)}
@@ -738,8 +893,17 @@ const WeeklyReport = () => {
                       <td className="p-2 md:p-4 text-right font-bold text-xs md:text-base text-green-600">
                         ₹{currentSummary.totalSalary.toFixed(0)}
                       </td>
-                      <td className="p-2 md:p-4 text-right font-bold text-xs md:text-base text-red-500 hidden md:table-cell">
-                        ₹{currentSummary.totalAdvance.toFixed(0)}
+                      <td className="p-2 md:p-4 text-right font-bold text-xs md:text-base text-red-500 hidden lg:table-cell">
+                        {currentSummary.totalAdvance > 0 ? `- ₹${currentSummary.totalAdvance.toFixed(0)}` : '-'}
+                      </td>
+                      <td className="p-2 md:p-4 text-right font-bold text-xs md:text-base text-red-500 hidden lg:table-cell">
+                        {currentSummary.totalEsiBf > 0 ? `- ₹${currentSummary.totalEsiBf.toFixed(0)}` : '-'}
+                      </td>
+                      <td className={`p-2 md:p-4 text-right font-bold text-xs md:text-base hidden xl:table-cell ${currentSummary.totalLastWeekBalance >= 0 ? 'text-green-600' : 'text-red-500'}`}>
+                        {currentSummary.totalLastWeekBalance !== 0 ? `${currentSummary.totalLastWeekBalance >= 0 ? '+' : ''} ₹${currentSummary.totalLastWeekBalance.toFixed(0)}` : '-'}
+                      </td>
+                      <td className={`p-2 md:p-4 text-right font-bold text-xs md:text-base hidden xl:table-cell ${currentSummary.totalExtraAmount >= 0 ? 'text-green-600' : 'text-red-500'}`}>
+                        {currentSummary.totalExtraAmount !== 0 ? `${currentSummary.totalExtraAmount >= 0 ? '+' : ''} ₹${currentSummary.totalExtraAmount.toFixed(0)}` : '-'}
                       </td>
                       <td className="p-2 md:p-4 text-right font-bold text-sm md:text-lg text-accent">
                         ₹{currentSummary.totalPayout.toFixed(2)}

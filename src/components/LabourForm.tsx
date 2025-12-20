@@ -21,6 +21,9 @@ interface WorkEntry {
 const LabourForm = ({ onLabourAdded }: LabourFormProps) => {
   const [name, setName] = useState("");
   const [advance, setAdvance] = useState("");
+  const [esiBfAmount, setEsiBfAmount] = useState("");
+  const [lastWeekBalance, setLastWeekBalance] = useState("");
+  const [extraAmount, setExtraAmount] = useState("");
   const [workEntries, setWorkEntries] = useState<WorkEntry[]>([
     { id: crypto.randomUUID(), ioNo: "", workType: "", quantity: "", rate: "" },
   ]);
@@ -31,7 +34,12 @@ const LabourForm = ({ onLabourAdded }: LabourFormProps) => {
   }, 0);
 
   const advanceAmount = parseFloat(advance) || 0;
-  const finalSalary = totalSalary - advanceAmount;
+  const esiBfAmountValue = parseFloat(esiBfAmount) || 0;
+  const lastWeekBalanceValue = parseFloat(lastWeekBalance) || 0;
+  const extraAmountValue = parseFloat(extraAmount) || 0;
+  
+  // Final Salary = Total Salary - Advance - ESI/BF + Last Week Balance + Extra Amount
+  const finalSalary = totalSalary - advanceAmount - esiBfAmountValue + lastWeekBalanceValue + extraAmountValue;
 
   const addWorkEntry = () => {
     setWorkEntries([
@@ -68,8 +76,9 @@ const LabourForm = ({ onLabourAdded }: LabourFormProps) => {
     setIsSubmitting(true);
 
     try {
+      // Build labour data without new fields (schema cache issue)
       const labourData = workEntries.map((entry, index) => ({
-        name: `${name.trim()} | ${entry.ioNo.trim()} | ${entry.workType.trim()} | ${index === 0 ? advanceAmount.toFixed(2) : '0.00'}`,
+        name: `${name.trim()} | ${entry.ioNo.trim()} | ${entry.workType.trim()} | ${index === 0 ? advanceAmount.toFixed(2) : '0.00'} | ${index === 0 ? esiBfAmountValue.toFixed(2) : '0.00'} | ${index === 0 ? lastWeekBalanceValue.toFixed(2) : '0.00'} | ${index === 0 ? extraAmountValue.toFixed(2) : '0.00'}`,
         pieces: parseInt(entry.quantity),
         quantity: 1,
         rate_per_piece: parseFloat(entry.rate),
@@ -84,6 +93,9 @@ const LabourForm = ({ onLabourAdded }: LabourFormProps) => {
       );
       setName("");
       setAdvance("");
+      setEsiBfAmount("");
+      setLastWeekBalance("");
+      setExtraAmount("");
       setWorkEntries([{ id: crypto.randomUUID(), ioNo: "", workType: "", quantity: "", rate: "" }]);
       onLabourAdded();
     } catch (error) {
@@ -139,6 +151,56 @@ const LabourForm = ({ onLabourAdded }: LabourFormProps) => {
               onChange={(e) => setAdvance(e.target.value)}
               className="input-field h-11"
             />
+          </div>
+        </div>
+
+        {/* New fields section */}
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 md:gap-4">
+          <div className="space-y-2">
+            <Label htmlFor="esiBf" className="text-sm md:text-base font-medium">
+              ESI/BF Amount (₹)
+            </Label>
+            <Input
+              id="esiBf"
+              type="number"
+              placeholder="0.00"
+              min="0"
+              step="0.01"
+              value={esiBfAmount}
+              onChange={(e) => setEsiBfAmount(e.target.value)}
+              className="input-field h-11"
+            />
+            <p className="text-xs text-muted-foreground">Will be deducted</p>
+          </div>
+          <div className="space-y-2">
+            <Label htmlFor="lastWeekBalance" className="text-sm md:text-base font-medium">
+              Last Week Balance (₹)
+            </Label>
+            <Input
+              id="lastWeekBalance"
+              type="number"
+              placeholder="0.00"
+              step="0.01"
+              value={lastWeekBalance}
+              onChange={(e) => setLastWeekBalance(e.target.value)}
+              className="input-field h-11"
+            />
+            <p className="text-xs text-muted-foreground">Will be added</p>
+          </div>
+          <div className="space-y-2">
+            <Label htmlFor="extraAmount" className="text-sm md:text-base font-medium">
+              Extra Amount (₹)
+            </Label>
+            <Input
+              id="extraAmount"
+              type="number"
+              placeholder="0.00"
+              step="0.01"
+              value={extraAmount}
+              onChange={(e) => setExtraAmount(e.target.value)}
+              className="input-field h-11"
+            />
+            <p className="text-xs text-muted-foreground">Will be added</p>
           </div>
         </div>
 
@@ -264,23 +326,48 @@ const LabourForm = ({ onLabourAdded }: LabourFormProps) => {
               </p>
             </div>
           </div>
-          {advanceAmount > 0 && (
-            <>
-              <div className="border-t border-border/50 pt-2">
-                <div className="flex items-center justify-between text-sm">
-                  <p className="text-muted-foreground">Advance Payment</p>
-                  <p className="font-semibold text-destructive">- ₹{advanceAmount.toFixed(2)}</p>
-                </div>
+          
+          {/* Show all deductions and additions */}
+          <div className="space-y-2">
+            {advanceAmount > 0 && (
+              <div className="flex items-center justify-between text-sm">
+                <p className="text-muted-foreground">Advance Payment</p>
+                <p className="font-semibold text-destructive">- ₹{advanceAmount.toFixed(2)}</p>
               </div>
-              <div className="border-t border-accent/30 pt-2">
-                <div className="flex items-center justify-between">
-                  <p className="text-xs md:text-sm font-semibold text-foreground">Final Amount</p>
-                  <p className="font-display text-2xl md:text-3xl font-bold text-accent">
-                    ₹{finalSalary.toFixed(2)}
-                  </p>
-                </div>
+            )}
+            {esiBfAmountValue > 0 && (
+              <div className="flex items-center justify-between text-sm">
+                <p className="text-muted-foreground">ESI/BF Amount</p>
+                <p className="font-semibold text-destructive">- ₹{esiBfAmountValue.toFixed(2)}</p>
               </div>
-            </>
+            )}
+            {lastWeekBalanceValue !== 0 && (
+              <div className="flex items-center justify-between text-sm">
+                <p className="text-muted-foreground">Last Week Balance</p>
+                <p className={`font-semibold ${lastWeekBalanceValue >= 0 ? 'text-green-600' : 'text-destructive'}`}>
+                  {lastWeekBalanceValue >= 0 ? '+' : ''} ₹{lastWeekBalanceValue.toFixed(2)}
+                </p>
+              </div>
+            )}
+            {extraAmountValue !== 0 && (
+              <div className="flex items-center justify-between text-sm">
+                <p className="text-muted-foreground">Extra Amount</p>
+                <p className={`font-semibold ${extraAmountValue >= 0 ? 'text-green-600' : 'text-destructive'}`}>
+                  {extraAmountValue >= 0 ? '+' : ''} ₹{extraAmountValue.toFixed(2)}
+                </p>
+              </div>
+            )}
+          </div>
+          
+          {(advanceAmount > 0 || esiBfAmountValue > 0 || lastWeekBalanceValue !== 0 || extraAmountValue !== 0) && (
+            <div className="border-t border-accent/30 pt-2">
+              <div className="flex items-center justify-between">
+                <p className="text-xs md:text-sm font-semibold text-foreground">Final Amount</p>
+                <p className="font-display text-2xl md:text-3xl font-bold text-accent">
+                  ₹{finalSalary.toFixed(2)}
+                </p>
+              </div>
+            </div>
           )}
         </div>
 

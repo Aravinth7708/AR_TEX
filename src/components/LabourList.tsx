@@ -32,6 +32,9 @@ interface Labour {
   rate_per_piece: number;
   total_salary: number;
   advance?: number;
+  esi_bf_amount?: number;
+  last_week_balance?: number;
+  extra_amount?: number;
   created_at: string;
 }
 
@@ -44,6 +47,9 @@ interface WorkDetail {
   rate_per_piece: number;
   total_salary: number;
   advance?: number;
+  esi_bf_amount?: number;
+  last_week_balance?: number;
+  extra_amount?: number;
 }
 
 interface LabourListProps {
@@ -59,7 +65,7 @@ const LabourList = ({ refreshTrigger }: LabourListProps) => {
   const [deleteAllDialogOpen, setDeleteAllDialogOpen] = useState(false);
   const [labourToDelete, setLabourToDelete] = useState<string | null>(null);
   const [editingWork, setEditingWork] = useState<WorkDetail | null>(null);
-  const [editValues, setEditValues] = useState({ ioNo: "", workType: "", pieces: "", rate: "", advance: "" });
+  const [editValues, setEditValues] = useState({ ioNo: "", workType: "", pieces: "", rate: "", advance: "", esiBf: "", lastWeekBalance: "", extraAmount: "" });
   const downloadRefs = useRef<{ [key: string]: HTMLDivElement | null }>({});
 
   const fetchLabours = async () => {
@@ -67,7 +73,7 @@ const LabourList = ({ refreshTrigger }: LabourListProps) => {
     try {
       const { data, error } = await supabase
         .from("labours")
-        .select("id, name, pieces, quantity, rate_per_piece, total_salary, created_at")
+        .select("*")
         .order("created_at", { ascending: false });
 
       if (error) throw error;
@@ -76,7 +82,17 @@ const LabourList = ({ refreshTrigger }: LabourListProps) => {
       const dataWithAdvance = (data || []).map(labour => {
         const parts = labour.name.split(' | ');
         const advance = parseFloat(parts[3] || '0');
-        return { ...labour, advance };
+        const esiBf = parseFloat(parts[4] || '0');
+        const lastWeekBal = parseFloat(parts[5] || '0');
+        const extra = parseFloat(parts[6] || '0');
+        
+        return { 
+          ...labour, 
+          advance,
+          esi_bf_amount: labour.esi_bf_amount || esiBf || 0,
+          last_week_balance: labour.last_week_balance || lastWeekBal || 0,
+          extra_amount: labour.extra_amount || extra || 0
+        };
       });
       
       setAllLabourData(dataWithAdvance);
@@ -88,8 +104,18 @@ const LabourList = ({ refreshTrigger }: LabourListProps) => {
         if (groupedData[baseName]) {
           groupedData[baseName].total_salary += labour.total_salary || 0;
           groupedData[baseName].advance = (groupedData[baseName].advance || 0) + (labour.advance || 0);
+          groupedData[baseName].esi_bf_amount = (groupedData[baseName].esi_bf_amount || 0) + (labour.esi_bf_amount || 0);
+          groupedData[baseName].last_week_balance = (groupedData[baseName].last_week_balance || 0) + (labour.last_week_balance || 0);
+          groupedData[baseName].extra_amount = (groupedData[baseName].extra_amount || 0) + (labour.extra_amount || 0);
         } else {
-          groupedData[baseName] = { ...labour, name: baseName, advance: labour.advance || 0 };
+          groupedData[baseName] = { 
+            ...labour, 
+            name: baseName, 
+            advance: labour.advance || 0,
+            esi_bf_amount: labour.esi_bf_amount || 0,
+            last_week_balance: labour.last_week_balance || 0,
+            extra_amount: labour.extra_amount || 0
+          };
         }
       });
       
@@ -116,6 +142,9 @@ const LabourList = ({ refreshTrigger }: LabourListProps) => {
           rate_per_piece: labour.rate_per_piece,
           total_salary: labour.total_salary,
           advance: labour.advance || 0,
+          esi_bf_amount: labour.esi_bf_amount || 0,
+          last_week_balance: labour.last_week_balance || 0,
+          extra_amount: labour.extra_amount || 0,
         };
       });
   };
@@ -167,12 +196,15 @@ const LabourList = ({ refreshTrigger }: LabourListProps) => {
       pieces: work.pieces.toString(),
       rate: work.rate_per_piece.toString(),
       advance: work.advance?.toString() || "0",
+      esiBf: work.esi_bf_amount?.toString() || "0",
+      lastWeekBalance: work.last_week_balance?.toString() || "0",
+      extraAmount: work.extra_amount?.toString() || "0",
     });
   };
 
   const cancelEdit = () => {
     setEditingWork(null);
-    setEditValues({ ioNo: "", workType: "", pieces: "", rate: "", advance: "" });
+    setEditValues({ ioNo: "", workType: "", pieces: "", rate: "", advance: "", esiBf: "", lastWeekBalance: "", extraAmount: "" });
   };
 
   const saveEdit = async () => {
@@ -181,16 +213,36 @@ const LabourList = ({ refreshTrigger }: LabourListProps) => {
     try {
       const baseName = allLabourData.find(l => l.id === editingWork.id)?.name.split(' | ')[0];
       const advanceAmount = parseFloat(editValues.advance) || 0;
-      const { error } = await supabase
+      const esiBfValue = parseFloat(editValues.esiBf) || 0;
+      const lastWeekBalanceValue = parseFloat(editValues.lastWeekBalance) || 0;
+      const extraAmountValue = parseFloat(editValues.extraAmount) || 0;
+      
+      // Try updating with new fields
+      let result = await supabase
         .from("labours")
         .update({
           name: `${baseName} | ${editValues.ioNo.trim()} | ${editValues.workType.trim()} | ${advanceAmount.toFixed(2)}`,
           pieces: parseInt(editValues.pieces),
           rate_per_piece: parseFloat(editValues.rate),
+          esi_bf_amount: esiBfValue,
+          last_week_balance: lastWeekBalanceValue,
+          extra_amount: extraAmountValue,
         })
         .eq("id", editingWork.id);
 
-      if (error) throw error;
+      // If schema cache error, try without new fields
+      if (result.error && result.error.message.includes('schema cache')) {
+        result = await supabase
+          .from("labours")
+          .update({
+            name: `${baseName} | ${editValues.ioNo.trim()} | ${editValues.workType.trim()} | ${advanceAmount.toFixed(2)}`,
+            pieces: parseInt(editValues.pieces),
+            rate_per_piece: parseFloat(editValues.rate),
+          })
+          .eq("id", editingWork.id);
+      }
+
+      if (result.error) throw result.error;
       toast.success("Work updated successfully");
       fetchLabours();
       cancelEdit();
@@ -310,7 +362,7 @@ const LabourList = ({ refreshTrigger }: LabourListProps) => {
     }
   };
 
-  const totalPayout = labours.reduce((sum, l) => sum + ((l.total_salary || 0) - (l.advance || 0)), 0);
+  const totalPayout = labours.reduce((sum, l) => sum + ((l.total_salary || 0) - (l.advance || 0) - (l.esi_bf_amount || 0) + (l.last_week_balance || 0) + (l.extra_amount || 0)), 0);
 
   return (
     <div className="card-elevated p-6 animate-fade-in" style={{ animationDelay: "0.1s" }}>
@@ -392,10 +444,13 @@ const LabourList = ({ refreshTrigger }: LabourListProps) => {
                     }}
                   >
                     <div style={{ padding: "40px", backgroundColor: "#ffffff", width: "800px", fontFamily: "Arial, sans-serif" }}>
-                      <div style={{ textAlign: "center", marginBottom: "30px", borderBottom: "3px solid #16a34a", paddingBottom: "20px" }}>
-                        <h1 style={{ fontSize: "32px", fontWeight: "bold", color: "#1a1a1a", marginBottom: "8px" }}>
-                          Labour Salary Report
+                      <div style={{ textAlign: "center", marginBottom: "30px", borderBottom: "3px solid #f59e0b", paddingBottom: "20px" }}>
+                        <h1 style={{ fontSize: "42px", fontWeight: "800", color: "#1a1a1a", marginBottom: "8px", letterSpacing: "-0.5px" }}>
+                          AR TEXTILES
                         </h1>
+                        <h2 style={{ fontSize: "28px", fontWeight: "600", color: "#f59e0b", marginBottom: "12px" }}>
+                          Labour Salary Report
+                        </h2>
                         <p style={{ fontSize: "18px", color: "#666666", marginBottom: "8px" }}>
                           {labour.name}
                         </p>
@@ -429,26 +484,54 @@ const LabourList = ({ refreshTrigger }: LabourListProps) => {
                         </table>
                       </div>
 
-                      <div style={{ marginTop: "40px", padding: "25px", backgroundColor: "#f0fdf4", border: "3px solid #16a34a", borderRadius: "12px" }}>
-                        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: labour.advance > 0 ? "15px" : "0" }}>
+                      <div style={{ marginTop: "40px", padding: "25px", backgroundColor: "#f0fdf4", border: "3px solid #f59e0b", borderRadius: "12px" }}>
+                        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "15px" }}>
                           <div>
                             <p style={{ fontSize: "18px", color: "#666", marginBottom: "4px", fontWeight: "600" }}>Total Salary</p>
                             <p style={{ fontSize: "14px", color: "#999" }}>{workDetails.length} work(s) completed</p>
                           </div>
-                          <p style={{ fontSize: "42px", fontWeight: "bold", color: "#16a34a" }}>₹{labour.total_salary?.toFixed(2) || "0.00"}</p>
+                          <p style={{ fontSize: "42px", fontWeight: "bold", color: "#22c55e" }}>₹{labour.total_salary?.toFixed(2) || "0.00"}</p>
                         </div>
-                        {labour.advance > 0 && (
+                        
+                        {/* Deductions and Additions */}
+                        {((labour.advance || 0) > 0 || (labour.esi_bf_amount || 0) > 0 || (labour.last_week_balance || 0) !== 0 || (labour.extra_amount || 0) !== 0) && (
                           <>
                             <div style={{ borderTop: "2px dashed #d1d5db", paddingTop: "15px", marginBottom: "15px" }}>
-                              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-                                <p style={{ fontSize: "16px", color: "#666", fontWeight: "600" }}>Advance Payment</p>
-                                <p style={{ fontSize: "24px", fontWeight: "bold", color: "#dc2626" }}>- ₹{labour.advance?.toFixed(2) || "0.00"}</p>
-                              </div>
+                              {(labour.advance || 0) > 0 && (
+                                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "10px" }}>
+                                  <p style={{ fontSize: "16px", color: "#666", fontWeight: "600" }}>Advance Payment</p>
+                                  <p style={{ fontSize: "24px", fontWeight: "bold", color: "#dc2626" }}>- ₹{labour.advance?.toFixed(2) || "0.00"}</p>
+                                </div>
+                              )}
+                              {(labour.esi_bf_amount || 0) > 0 && (
+                                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "10px" }}>
+                                  <p style={{ fontSize: "16px", color: "#666", fontWeight: "600" }}>ESI/BF Deduction</p>
+                                  <p style={{ fontSize: "24px", fontWeight: "bold", color: "#dc2626" }}>- ₹{labour.esi_bf_amount?.toFixed(2) || "0.00"}</p>
+                                </div>
+                              )}
+                              {(labour.last_week_balance || 0) !== 0 && (
+                                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "10px" }}>
+                                  <p style={{ fontSize: "16px", color: "#666", fontWeight: "600" }}>Last Week Balance</p>
+                                  <p style={{ fontSize: "24px", fontWeight: "bold", color: (labour.last_week_balance || 0) >= 0 ? "#22c55e" : "#dc2626" }}>
+                                    {(labour.last_week_balance || 0) >= 0 ? "+" : ""} ₹{labour.last_week_balance?.toFixed(2) || "0.00"}
+                                  </p>
+                                </div>
+                              )}
+                              {(labour.extra_amount || 0) !== 0 && (
+                                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "10px" }}>
+                                  <p style={{ fontSize: "16px", color: "#666", fontWeight: "600" }}>Extra Amount</p>
+                                  <p style={{ fontSize: "24px", fontWeight: "bold", color: (labour.extra_amount || 0) >= 0 ? "#22c55e" : "#dc2626" }}>
+                                    {(labour.extra_amount || 0) >= 0 ? "+" : ""} ₹{labour.extra_amount?.toFixed(2) || "0.00"}
+                                  </p>
+                                </div>
+                              )}
                             </div>
-                            <div style={{ borderTop: "3px solid #16a34a", paddingTop: "15px" }}>
+                            <div style={{ borderTop: "3px solid #f59e0b", paddingTop: "15px" }}>
                               <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
                                 <p style={{ fontSize: "18px", color: "#1a1a1a", fontWeight: "700" }}>Final Amount</p>
-                                <p style={{ fontSize: "42px", fontWeight: "bold", color: "#16a34a" }}>₹{((labour.total_salary || 0) - (labour.advance || 0)).toFixed(2)}</p>
+                                <p style={{ fontSize: "42px", fontWeight: "bold", color: "#f59e0b" }}>
+                                  ₹{((labour.total_salary || 0) - (labour.advance || 0) - (labour.esi_bf_amount || 0) + (labour.last_week_balance || 0) + (labour.extra_amount || 0)).toFixed(2)}
+                                </p>
                               </div>
                             </div>
                           </>
@@ -486,12 +569,12 @@ const LabourList = ({ refreshTrigger }: LabourListProps) => {
                       <div className="flex items-center gap-1 md:gap-3 flex-shrink-0">
                         <div className="text-right">
                           <p className="text-xs text-muted-foreground hidden md:block">
-                            {labour.advance > 0 ? "Final" : "Salary"}
+                            {(labour.advance || 0) + (labour.esi_bf_amount || 0) + (labour.last_week_balance || 0) + (labour.extra_amount || 0) > 0 ? "Final" : "Salary"}
                           </p>
                           <p className="font-display text-base md:text-xl font-bold text-accent whitespace-nowrap">
-                            ₹{((labour.total_salary || 0) - (labour.advance || 0)).toFixed(2)}
+                            ₹{((labour.total_salary || 0) - (labour.advance || 0) - (labour.esi_bf_amount || 0) + (labour.last_week_balance || 0) + (labour.extra_amount || 0)).toFixed(2)}
                           </p>
-                          {labour.advance > 0 && (
+                          {((labour.advance || 0) > 0 || (labour.esi_bf_amount || 0) > 0 || (labour.last_week_balance || 0) !== 0 || (labour.extra_amount || 0) !== 0) && (
                             <p className="text-xs text-muted-foreground line-through">
                               ₹{labour.total_salary?.toFixed(2)}
                             </p>
@@ -584,13 +667,48 @@ const LabourList = ({ refreshTrigger }: LabourListProps) => {
                                       className="h-8 text-sm"
                                     />
                                   </div>
-                                  <div className="col-span-2 sm:col-span-4">
+                                </div>
+                                <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+                                  <div>
                                     <Label className="text-xs">Advance (₹)</Label>
                                     <Input
                                       type="number"
                                       step="0.01"
                                       value={editValues.advance}
                                       onChange={(e) => setEditValues({ ...editValues, advance: e.target.value })}
+                                      className="h-8 text-sm"
+                                      placeholder="0.00"
+                                    />
+                                  </div>
+                                  <div>
+                                    <Label className="text-xs">ESI/BF (₹)</Label>
+                                    <Input
+                                      type="number"
+                                      step="0.01"
+                                      value={editValues.esiBf}
+                                      onChange={(e) => setEditValues({ ...editValues, esiBf: e.target.value })}
+                                      className="h-8 text-sm"
+                                      placeholder="0.00"
+                                    />
+                                  </div>
+                                  <div>
+                                    <Label className="text-xs">Last Week Bal (₹)</Label>
+                                    <Input
+                                      type="number"
+                                      step="0.01"
+                                      value={editValues.lastWeekBalance}
+                                      onChange={(e) => setEditValues({ ...editValues, lastWeekBalance: e.target.value })}
+                                      className="h-8 text-sm"
+                                      placeholder="0.00"
+                                    />
+                                  </div>
+                                  <div>
+                                    <Label className="text-xs">Extra Amount (₹)</Label>
+                                    <Input
+                                      type="number"
+                                      step="0.01"
+                                      value={editValues.extraAmount}
+                                      onChange={(e) => setEditValues({ ...editValues, extraAmount: e.target.value })}
                                       className="h-8 text-sm"
                                       placeholder="0.00"
                                     />
@@ -664,21 +782,45 @@ const LabourList = ({ refreshTrigger }: LabourListProps) => {
                           </div>
                         ))}
                       </div>
-                      {labour.advance > 0 && (
+                      {((labour.advance || 0) > 0 || (labour.esi_bf_amount || 0) > 0 || (labour.last_week_balance || 0) !== 0 || (labour.extra_amount || 0) !== 0) && (
                         <div className="mt-3 pt-3 border-t border-border">
                           <div className="bg-muted/50 rounded-lg p-3">
-                            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 text-sm">
+                            <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3 text-sm">
                               <div className="text-center sm:text-left">
                                 <p className="text-muted-foreground text-xs mb-1">Total Salary</p>
                                 <p className="font-bold text-base md:text-lg">₹{labour.total_salary?.toFixed(2) || "0.00"}</p>
                               </div>
-                              <div className="text-center sm:text-left">
-                                <p className="text-muted-foreground text-xs mb-1">Advance Paid</p>
-                                <p className="font-bold text-base md:text-lg text-destructive">- ₹{labour.advance?.toFixed(2) || "0.00"}</p>
-                              </div>
-                              <div className="text-center sm:text-left">
+                              {(labour.advance || 0) > 0 && (
+                                <div className="text-center sm:text-left">
+                                  <p className="text-muted-foreground text-xs mb-1">Advance Paid</p>
+                                  <p className="font-bold text-base md:text-lg text-destructive">- ₹{labour.advance?.toFixed(2) || "0.00"}</p>
+                                </div>
+                              )}
+                              {(labour.esi_bf_amount || 0) > 0 && (
+                                <div className="text-center sm:text-left">
+                                  <p className="text-muted-foreground text-xs mb-1">ESI/BF</p>
+                                  <p className="font-bold text-base md:text-lg text-destructive">- ₹{labour.esi_bf_amount?.toFixed(2) || "0.00"}</p>
+                                </div>
+                              )}
+                              {(labour.last_week_balance || 0) !== 0 && (
+                                <div className="text-center sm:text-left">
+                                  <p className="text-muted-foreground text-xs mb-1">Last Week Bal</p>
+                                  <p className={`font-bold text-base md:text-lg ${(labour.last_week_balance || 0) >= 0 ? 'text-green-600' : 'text-destructive'}`}>
+                                    {(labour.last_week_balance || 0) >= 0 ? '+' : ''} ₹{labour.last_week_balance?.toFixed(2) || "0.00"}
+                                  </p>
+                                </div>
+                              )}
+                              {(labour.extra_amount || 0) !== 0 && (
+                                <div className="text-center sm:text-left">
+                                  <p className="text-muted-foreground text-xs mb-1">Extra Amount</p>
+                                  <p className={`font-bold text-base md:text-lg ${(labour.extra_amount || 0) >= 0 ? 'text-green-600' : 'text-destructive'}`}>
+                                    {(labour.extra_amount || 0) >= 0 ? '+' : ''} ₹{labour.extra_amount?.toFixed(2) || "0.00"}
+                                  </p>
+                                </div>
+                              )}
+                              <div className="text-center sm:text-left col-span-2 sm:col-span-1">
                                 <p className="text-muted-foreground text-xs mb-1">Final Amount</p>
-                                <p className="font-bold text-base md:text-lg text-accent">₹{((labour.total_salary || 0) - (labour.advance || 0)).toFixed(2)}</p>
+                                <p className="font-bold text-base md:text-lg text-accent">₹{((labour.total_salary || 0) - (labour.advance || 0) - (labour.esi_bf_amount || 0) + (labour.last_week_balance || 0) + (labour.extra_amount || 0)).toFixed(2)}</p>
                               </div>
                             </div>
                           </div>

@@ -25,6 +25,9 @@ export type Database = {
           rate_per_piece: number
           total_salary: number | null
           updated_at: string
+          esi_bf_amount?: number
+          last_week_balance?: number
+          extra_amount?: number
         }
         Insert: {
           advance?: number
@@ -36,6 +39,9 @@ export type Database = {
           rate_per_piece?: number
           total_salary?: number | null
           updated_at?: string
+          esi_bf_amount?: number
+          last_week_balance?: number
+          extra_amount?: number
         }
         Update: {
           advance?: number
@@ -47,6 +53,9 @@ export type Database = {
           rate_per_piece?: number
           total_salary?: number | null
           updated_at?: string
+          esi_bf_amount?: number
+          last_week_balance?: number
+          extra_amount?: number
         }
         Relationships: []
       }

@@ -217,30 +217,15 @@ const LabourList = ({ refreshTrigger }: LabourListProps) => {
       const lastWeekBalanceValue = parseFloat(editValues.lastWeekBalance) || 0;
       const extraAmountValue = parseFloat(editValues.extraAmount) || 0;
       
-      // Try updating with new fields
-      let result = await supabase
+      // Update with all values in the name field (workaround for schema cache)
+      const result = await supabase
         .from("labours")
         .update({
-          name: `${baseName} | ${editValues.ioNo.trim()} | ${editValues.workType.trim()} | ${advanceAmount.toFixed(2)}`,
+          name: `${baseName} | ${editValues.ioNo.trim()} | ${editValues.workType.trim()} | ${advanceAmount.toFixed(2)} | ${esiBfValue.toFixed(2)} | ${lastWeekBalanceValue.toFixed(2)} | ${extraAmountValue.toFixed(2)}`,
           pieces: parseInt(editValues.pieces),
           rate_per_piece: parseFloat(editValues.rate),
-          esi_bf_amount: esiBfValue,
-          last_week_balance: lastWeekBalanceValue,
-          extra_amount: extraAmountValue,
         })
         .eq("id", editingWork.id);
-
-      // If schema cache error, try without new fields
-      if (result.error && result.error.message.includes('schema cache')) {
-        result = await supabase
-          .from("labours")
-          .update({
-            name: `${baseName} | ${editValues.ioNo.trim()} | ${editValues.workType.trim()} | ${advanceAmount.toFixed(2)}`,
-            pieces: parseInt(editValues.pieces),
-            rate_per_piece: parseFloat(editValues.rate),
-          })
-          .eq("id", editingWork.id);
-      }
 
       if (result.error) throw result.error;
       toast.success("Work updated successfully");

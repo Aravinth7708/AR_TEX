@@ -2,6 +2,7 @@ import { Scissors, LogOut } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
 import { useEffect, useState } from "react";
+import { useNavigate } from "react-router-dom";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -13,6 +14,7 @@ import {
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 
 const Header = () => {
+  const navigate = useNavigate();
   const [userId, setUserId] = useState<string>("");
 
   useEffect(() => {
@@ -23,8 +25,9 @@ const Header = () => {
   const handleLogout = () => {
     localStorage.removeItem("artextiles_auth");
     localStorage.removeItem("artextiles_user");
+    localStorage.removeItem("artextiles_last_activity");
     toast.success("Logged out successfully");
-    window.location.reload();
+    navigate("/login");
   };
 
   return (
@@ -43,13 +46,22 @@ const Header = () => {
             </p>
           </div>
         </div>
-        <div className="flex items-center gap-4">
+        <div className="flex items-center gap-2 sm:gap-4">
           <div className="hidden md:block text-right">
             <p className="text-primary-foreground/60 text-xs uppercase tracking-wider">
               Garment Manufacturing
             </p>
             <p className="text-amber font-semibold">Stitching Division</p>
           </div>
+          <Button 
+            onClick={handleLogout} 
+            variant="outline"
+            size="sm"
+            className="bg-white/90 text-primary hover:bg-white hover:text-primary border-white/20 font-medium"
+          >
+            <LogOut className="h-4 w-4 mr-2" />
+            Logout
+          </Button>
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
               <Button variant="ghost" className="relative h-10 w-10 rounded-full hover:bg-accent/20">

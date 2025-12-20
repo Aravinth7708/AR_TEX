@@ -25,6 +25,7 @@ const Login = () => {
       // Store authentication in localStorage
       localStorage.setItem("artextiles_auth", "true");
       localStorage.setItem("artextiles_user", userId);
+      localStorage.setItem("artextiles_last_activity", Date.now().toString());
       
       toast.success("Logged in successfully");
       

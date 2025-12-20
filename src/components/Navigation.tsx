@@ -1,11 +1,21 @@
-import { Link, useLocation } from "react-router-dom";
-import { Home, Calendar, Menu, X } from "lucide-react";
+import { Link, useLocation, useNavigate } from "react-router-dom";
+import { Home, Calendar, Menu, X, LogOut } from "lucide-react";
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
+import { toast } from "sonner";
 
 const Navigation = () => {
   const location = useLocation();
+  const navigate = useNavigate();
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
+
+  const handleLogout = () => {
+    localStorage.removeItem("artextiles_auth");
+    localStorage.removeItem("artextiles_user");
+    localStorage.removeItem("artextiles_last_activity");
+    toast.success("Logged out successfully");
+    navigate("/login");
+  };
 
   const navItems = [
     { path: "/", label: "Home", icon: Home },
@@ -49,6 +59,14 @@ const Navigation = () => {
                   </Link>
                 );
               })}
+              <Button
+                variant="destructive"
+                onClick={handleLogout}
+                className="gap-2"
+              >
+                <LogOut className="w-4 h-4" />
+                Logout
+              </Button>
             </div>
 
             {/* Mobile Menu Button */}
@@ -88,6 +106,14 @@ const Navigation = () => {
                     </Link>
                   );
                 })}
+                <Button
+                  variant="destructive"
+                  onClick={handleLogout}
+                  className="w-full justify-start gap-3 h-12"
+                >
+                  <LogOut className="w-5 h-5" />
+                  <span className="text-base">Logout</span>
+                </Button>
               </div>
             </div>
           )}

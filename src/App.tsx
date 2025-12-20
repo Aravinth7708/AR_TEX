@@ -15,18 +15,63 @@ const ProtectedRoute = ({ children }: { children: React.ReactNode }) => {
   const [isAuthenticated, setIsAuthenticated] = useState<boolean | null>(null);
 
   useEffect(() => {
+    // Update last activity time
+    const updateActivity = () => {
+      if (localStorage.getItem("artextiles_auth") === "true") {
+        localStorage.setItem("artextiles_last_activity", Date.now().toString());
+      }
+    };
+
     // Check localStorage for authentication
     const checkAuth = () => {
       const auth = localStorage.getItem("artextiles_auth");
-      setIsAuthenticated(auth === "true");
+      const lastActivity = localStorage.getItem("artextiles_last_activity");
+      
+      if (auth === "true" && lastActivity) {
+        const currentTime = Date.now();
+        const timePassed = currentTime - parseInt(lastActivity);
+        const twentyFourHours = 24 * 60 * 60 * 1000; // 24 hours in milliseconds
+        
+        // Check if 24 hours have passed since last activity
+        if (timePassed > twentyFourHours) {
+          // Auto logout due to inactivity
+          localStorage.removeItem("artextiles_auth");
+          localStorage.removeItem("artextiles_user");
+          localStorage.removeItem("artextiles_last_activity");
+          setIsAuthenticated(false);
+        } else {
+          setIsAuthenticated(true);
+        }
+      } else if (auth === "true") {
+        // First time, set last activity
+        updateActivity();
+        setIsAuthenticated(true);
+      } else {
+        setIsAuthenticated(false);
+      }
     };
     
     checkAuth();
     
+    // Track user activity
+    const activityEvents = ['mousedown', 'keydown', 'scroll', 'touchstart', 'click'];
+    activityEvents.forEach(event => {
+      window.addEventListener(event, updateActivity);
+    });
+    
+    // Check every minute if session expired
+    const interval = setInterval(checkAuth, 60000);
+    
     // Listen for storage changes (in case of logout from another tab)
     window.addEventListener("storage", checkAuth);
     
-    return () => window.removeEventListener("storage", checkAuth);
+    return () => {
+      clearInterval(interval);
+      window.removeEventListener("storage", checkAuth);
+      activityEvents.forEach(event => {
+        window.removeEventListener(event, updateActivity);
+      });
+    };
   }, []);
 
   if (isAuthenticated === null) {

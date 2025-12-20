@@ -230,24 +230,24 @@ const WeeklyReport = () => {
   };
 
   return (
-    <div className="card-elevated p-4 md:p-6 animate-fade-in max-w-7xl mx-auto" style={{ animationDelay: "0.2s" }}>
-      <div className="flex flex-col gap-4 mb-6">
-        <div className="flex items-center gap-3">
-          <div className="w-10 h-10 md:w-12 md:h-12 rounded-lg gradient-primary flex items-center justify-center">
-            <Calendar className="w-5 h-5 md:w-6 md:h-6 text-primary-foreground" />
+    <div className="card-elevated p-3 md:p-6 animate-fade-in max-w-7xl mx-auto" style={{ animationDelay: "0.2s" }}>
+      <div className="flex flex-col gap-3 md:gap-4 mb-4 md:mb-6">
+        <div className="flex items-center gap-2 md:gap-3">
+          <div className="w-9 h-9 md:w-12 md:h-12 rounded-lg gradient-primary flex items-center justify-center flex-shrink-0">
+            <Calendar className="w-4 h-4 md:w-6 md:h-6 text-primary-foreground" />
           </div>
-          <div>
-            <h2 className="font-display text-xl md:text-2xl font-bold text-foreground">
-              Weekly Salary Report
+          <div className="min-w-0 flex-1">
+            <h2 className="font-display text-base md:text-2xl font-bold text-foreground">
+              Weekly Report
             </h2>
             <p className="text-xs md:text-sm text-muted-foreground">
-              Weekly labour payment summary
+              Labour payment summary
             </p>
           </div>
         </div>
-        <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2 w-full">
+        <div className="flex flex-col gap-2">
           <Select value={selectedWeek} onValueChange={setSelectedWeek}>
-            <SelectTrigger className="w-full sm:w-[250px] h-11">
+            <SelectTrigger className="w-full h-10 md:h-11 text-sm md:text-base">
               <SelectValue placeholder="Select week" />
             </SelectTrigger>
             <SelectContent>
@@ -259,26 +259,24 @@ const WeeklyReport = () => {
             </SelectContent>
           </Select>
           {currentSummary && (
-            <div className="flex gap-2 w-full sm:w-auto">
+            <div className="grid grid-cols-2 gap-2">
               <Button
                 onClick={downloadAsImage}
                 variant="outline"
-                className="flex-1 sm:flex-none h-11"
-                size="default"
+                className="h-10 md:h-11 text-xs md:text-sm"
+                size="sm"
               >
-                <Download className="w-4 h-4 mr-2" />
-                <span className="hidden sm:inline">Image</span>
-                <span className="sm:hidden">Download Image</span>
+                <Download className="w-3.5 h-3.5 md:w-4 md:h-4 mr-1.5 md:mr-2" />
+                <span className="truncate">Image</span>
               </Button>
               <Button
                 onClick={downloadAsPDF}
                 variant="outline"
-                className="flex-1 sm:flex-none h-11"
-                size="default"
+                className="h-10 md:h-11 text-xs md:text-sm"
+                size="sm"
               >
-                <Download className="w-4 h-4 mr-2" />
-                <span className="hidden sm:inline">PDF</span>
-                <span className="sm:hidden">Download PDF</span>
+                <Download className="w-3.5 h-3.5 md:w-4 md:h-4 mr-1.5 md:mr-2" />
+                <span className="truncate">PDF</span>
               </Button>
             </div>
           )}
@@ -626,45 +624,45 @@ const WeeklyReport = () => {
             </div>
           </div>
 
-          <div id="weekly-report-content" className="space-y-4 md:space-y-6">
+          <div id="weekly-report-content" className="space-y-3 md:space-y-6">
             {/* Summary Cards */}
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 md:gap-4">
+            <div className="grid grid-cols-2 lg:grid-cols-4 gap-2 md:gap-4">
               <Card className="border-accent/20">
-                <CardHeader className="pb-2 pt-4 px-4">
-                  <CardDescription className="text-xs">Total Labours</CardDescription>
-                  <CardTitle className="text-xl md:text-2xl flex items-center gap-2">
-                    <Users className="w-4 h-4 md:w-5 md:h-5 text-accent" />
+                <CardHeader className="pb-2 pt-3 px-3 md:pt-4 md:px-4">
+                  <CardDescription className="text-[10px] md:text-xs">Labours</CardDescription>
+                  <CardTitle className="text-lg md:text-2xl flex items-center gap-1 md:gap-2">
+                    <Users className="w-3.5 h-3.5 md:w-5 md:h-5 text-accent" />
                     {currentSummary.labours.length}
                   </CardTitle>
                 </CardHeader>
               </Card>
 
               <Card className="border-green-500/20">
-                <CardHeader className="pb-2 pt-4 px-4">
-                  <CardDescription className="text-xs">Total Salary</CardDescription>
-                  <CardTitle className="text-xl md:text-2xl flex items-center gap-2">
-                    <TrendingUp className="w-4 h-4 md:w-5 md:h-5 text-green-500" />
-                    ₹{currentSummary.totalSalary.toFixed(2)}
+                <CardHeader className="pb-2 pt-3 px-3 md:pt-4 md:px-4">
+                  <CardDescription className="text-[10px] md:text-xs">Salary</CardDescription>
+                  <CardTitle className="text-base md:text-2xl flex items-center gap-1 md:gap-2">
+                    <TrendingUp className="w-3.5 h-3.5 md:w-5 md:h-5 text-green-500" />
+                    <span className="truncate">₹{currentSummary.totalSalary.toFixed(0)}</span>
                   </CardTitle>
                 </CardHeader>
               </Card>
 
               <Card className="border-red-500/20">
-                <CardHeader className="pb-2 pt-4 px-4">
-                  <CardDescription className="text-xs">Total Advance</CardDescription>
-                  <CardTitle className="text-xl md:text-2xl flex items-center gap-2">
-                    <Wallet className="w-4 h-4 md:w-5 md:h-5 text-red-500" />
-                    ₹{currentSummary.totalAdvance.toFixed(2)}
+                <CardHeader className="pb-2 pt-3 px-3 md:pt-4 md:px-4">
+                  <CardDescription className="text-[10px] md:text-xs">Advance</CardDescription>
+                  <CardTitle className="text-base md:text-2xl flex items-center gap-1 md:gap-2">
+                    <Wallet className="w-3.5 h-3.5 md:w-5 md:h-5 text-red-500" />
+                    <span className="truncate">₹{currentSummary.totalAdvance.toFixed(0)}</span>
                   </CardTitle>
                 </CardHeader>
               </Card>
 
-              <Card className="border-accent/30 bg-accent/5">
-                <CardHeader className="pb-2 pt-4 px-4">
-                  <CardDescription className="text-xs font-semibold">Final Payout</CardDescription>
-                  <CardTitle className="text-xl md:text-2xl flex items-center gap-2 text-accent">
-                    <Wallet className="w-4 h-4 md:w-5 md:h-5" />
-                    ₹{currentSummary.totalPayout.toFixed(2)}
+              <Card className="border-accent/30 bg-accent/5 col-span-2 lg:col-span-1">
+                <CardHeader className="pb-2 pt-3 px-3 md:pt-4 md:px-4">
+                  <CardDescription className="text-[10px] md:text-xs font-semibold">Final Payout</CardDescription>
+                  <CardTitle className="text-lg md:text-2xl flex items-center gap-1 md:gap-2 text-accent">
+                    <Wallet className="w-3.5 h-3.5 md:w-5 md:h-5" />
+                    <span className="truncate">₹{currentSummary.totalPayout.toFixed(2)}</span>
                   </CardTitle>
                 </CardHeader>
               </Card>
@@ -676,19 +674,19 @@ const WeeklyReport = () => {
                 <table className="w-full">
                   <thead className="bg-muted/50">
                     <tr>
-                      <th className="text-left p-3 md:p-4 text-xs md:text-sm font-semibold text-foreground">
-                        Labour Name
+                      <th className="text-left p-2 md:p-4 text-[10px] md:text-sm font-semibold text-foreground">
+                        Name
                       </th>
-                      <th className="text-center p-3 md:p-4 text-xs md:text-sm font-semibold text-foreground hidden sm:table-cell">
+                      <th className="text-center p-2 md:p-4 text-[10px] md:text-sm font-semibold text-foreground hidden sm:table-cell">
                         Works
                       </th>
-                      <th className="text-right p-3 md:p-4 text-xs md:text-sm font-semibold text-foreground">
+                      <th className="text-right p-2 md:p-4 text-[10px] md:text-sm font-semibold text-foreground">
                         Salary
                       </th>
-                      <th className="text-right p-3 md:p-4 text-xs md:text-sm font-semibold text-foreground hidden md:table-cell">
+                      <th className="text-right p-2 md:p-4 text-[10px] md:text-sm font-semibold text-foreground hidden md:table-cell">
                         Advance
                       </th>
-                      <th className="text-right p-3 md:p-4 text-xs md:text-sm font-semibold text-foreground">
+                      <th className="text-right p-2 md:p-4 text-[10px] md:text-sm font-semibold text-foreground">
                         Final
                       </th>
                     </tr>
@@ -699,51 +697,51 @@ const WeeklyReport = () => {
                         key={index}
                         className="border-t border-border hover:bg-muted/30 transition-colors"
                       >
-                        <td className="p-3 md:p-4">
+                        <td className="p-2 md:p-4">
                           <div>
-                            <p className="font-medium text-sm md:text-base text-foreground">
+                            <p className="font-medium text-xs md:text-base text-foreground line-clamp-1">
                               {labour.name}
                             </p>
-                            <p className="text-xs text-muted-foreground sm:hidden">
-                              {labour.worksCount} work{labour.worksCount !== 1 ? 's' : ''}
+                            <p className="text-[10px] text-muted-foreground sm:hidden">
+                              {labour.worksCount}w
                             </p>
                             {labour.advance > 0 && (
-                              <p className="text-xs text-red-500 md:hidden mt-1">
-                                Adv: ₹{labour.advance.toFixed(2)}
+                              <p className="text-[10px] text-red-500 md:hidden">
+                                A:₹{labour.advance.toFixed(0)}
                               </p>
                             )}
                           </div>
                         </td>
-                        <td className="p-3 md:p-4 text-center text-sm md:text-base text-muted-foreground hidden sm:table-cell">
+                        <td className="p-2 md:p-4 text-center text-xs md:text-base text-muted-foreground hidden sm:table-cell">
                           {labour.worksCount}
                         </td>
-                        <td className="p-3 md:p-4 text-right font-semibold text-sm md:text-base text-green-600">
-                          ₹{labour.totalSalary.toFixed(2)}
+                        <td className="p-2 md:p-4 text-right font-semibold text-xs md:text-base text-green-600">
+                          ₹{labour.totalSalary.toFixed(0)}
                         </td>
-                        <td className="p-3 md:p-4 text-right font-semibold text-sm md:text-base text-red-500 hidden md:table-cell">
-                          {labour.advance > 0 ? `₹${labour.advance.toFixed(2)}` : '-'}
+                        <td className="p-2 md:p-4 text-right font-semibold text-xs md:text-base text-red-500 hidden md:table-cell">
+                          {labour.advance > 0 ? `₹${labour.advance.toFixed(0)}` : '-'}
                         </td>
-                        <td className="p-3 md:p-4 text-right font-bold text-sm md:text-base text-accent">
-                          ₹{labour.finalAmount.toFixed(2)}
+                        <td className="p-2 md:p-4 text-right font-bold text-xs md:text-base text-accent">
+                          ₹{labour.finalAmount.toFixed(0)}
                         </td>
                       </tr>
                     ))}
                   </tbody>
                   <tfoot className="bg-accent/10 border-t-2 border-accent">
                     <tr>
-                      <td className="p-3 md:p-4 font-bold text-sm md:text-base text-foreground">
+                      <td className="p-2 md:p-4 font-bold text-xs md:text-base text-foreground">
                         Total
                       </td>
-                      <td className="p-3 md:p-4 text-center font-semibold text-sm md:text-base hidden sm:table-cell">
+                      <td className="p-2 md:p-4 text-center font-semibold text-xs md:text-base hidden sm:table-cell">
                         {currentSummary.labours.reduce((sum, l) => sum + l.worksCount, 0)}
                       </td>
-                      <td className="p-3 md:p-4 text-right font-bold text-sm md:text-base text-green-600">
-                        ₹{currentSummary.totalSalary.toFixed(2)}
+                      <td className="p-2 md:p-4 text-right font-bold text-xs md:text-base text-green-600">
+                        ₹{currentSummary.totalSalary.toFixed(0)}
                       </td>
-                      <td className="p-3 md:p-4 text-right font-bold text-sm md:text-base text-red-500 hidden md:table-cell">
-                        ₹{currentSummary.totalAdvance.toFixed(2)}
+                      <td className="p-2 md:p-4 text-right font-bold text-xs md:text-base text-red-500 hidden md:table-cell">
+                        ₹{currentSummary.totalAdvance.toFixed(0)}
                       </td>
-                      <td className="p-3 md:p-4 text-right font-bold text-base md:text-lg text-accent">
+                      <td className="p-2 md:p-4 text-right font-bold text-sm md:text-lg text-accent">
                         ₹{currentSummary.totalPayout.toFixed(2)}
                       </td>
                     </tr>
@@ -753,24 +751,24 @@ const WeeklyReport = () => {
             </div>
 
             {/* Summary Box */}
-            <div className="bg-gradient-to-r from-accent/10 to-accent/5 border border-accent/20 rounded-xl p-4 md:p-6">
-              <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 md:gap-6">
-                <div className="text-center sm:text-left">
-                  <p className="text-xs md:text-sm text-muted-foreground mb-1">Week Period</p>
-                  <p className="font-semibold text-sm md:text-base text-foreground">
+            <div className="bg-gradient-to-r from-accent/10 to-accent/5 border border-accent/20 rounded-xl p-3 md:p-6">
+              <div className="grid grid-cols-3 gap-2 md:gap-6">
+                <div className="text-center">
+                  <p className="text-[10px] md:text-sm text-muted-foreground mb-0.5 md:mb-1">Period</p>
+                  <p className="font-semibold text-[10px] md:text-base text-foreground leading-tight">
                     {formatWeekRange(currentSummary.weekStart, currentSummary.weekEnd)}
                   </p>
                 </div>
-                <div className="text-center sm:text-left">
-                  <p className="text-xs md:text-sm text-muted-foreground mb-1">Total Works</p>
-                  <p className="font-semibold text-sm md:text-base text-foreground">
-                    {currentSummary.labours.reduce((sum, l) => sum + l.worksCount, 0)} work(s)
+                <div className="text-center">
+                  <p className="text-[10px] md:text-sm text-muted-foreground mb-0.5 md:mb-1">Works</p>
+                  <p className="font-semibold text-xs md:text-base text-foreground">
+                    {currentSummary.labours.reduce((sum, l) => sum + l.worksCount, 0)}
                   </p>
                 </div>
-                <div className="text-center sm:text-left">
-                  <p className="text-xs md:text-sm text-muted-foreground mb-1">Average per Labour</p>
-                  <p className="font-semibold text-sm md:text-base text-accent">
-                    ₹{(currentSummary.totalPayout / currentSummary.labours.length).toFixed(2)}
+                <div className="text-center">
+                  <p className="text-[10px] md:text-sm text-muted-foreground mb-0.5 md:mb-1">Average</p>
+                  <p className="font-semibold text-xs md:text-base text-accent">
+                    ₹{(currentSummary.totalPayout / currentSummary.labours.length).toFixed(0)}
                   </p>
                 </div>
               </div>

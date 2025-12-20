@@ -154,56 +154,6 @@ const LabourForm = ({ onLabourAdded }: LabourFormProps) => {
           </div>
         </div>
 
-        {/* New fields section */}
-        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 md:gap-4">
-          <div className="space-y-2">
-            <Label htmlFor="esiBf" className="text-sm md:text-base font-medium">
-              ESI/BF Amount (₹)
-            </Label>
-            <Input
-              id="esiBf"
-              type="number"
-              placeholder="0.00"
-              min="0"
-              step="0.01"
-              value={esiBfAmount}
-              onChange={(e) => setEsiBfAmount(e.target.value)}
-              className="input-field h-11"
-            />
-            <p className="text-xs text-muted-foreground">Will be deducted</p>
-          </div>
-          <div className="space-y-2">
-            <Label htmlFor="lastWeekBalance" className="text-sm md:text-base font-medium">
-              Last Week Balance (₹)
-            </Label>
-            <Input
-              id="lastWeekBalance"
-              type="number"
-              placeholder="0.00"
-              step="0.01"
-              value={lastWeekBalance}
-              onChange={(e) => setLastWeekBalance(e.target.value)}
-              className="input-field h-11"
-            />
-            <p className="text-xs text-muted-foreground">Will be added</p>
-          </div>
-          <div className="space-y-2">
-            <Label htmlFor="extraAmount" className="text-sm md:text-base font-medium">
-              Extra Amount (₹)
-            </Label>
-            <Input
-              id="extraAmount"
-              type="number"
-              placeholder="0.00"
-              step="0.01"
-              value={extraAmount}
-              onChange={(e) => setExtraAmount(e.target.value)}
-              className="input-field h-11"
-            />
-            <p className="text-xs text-muted-foreground">Will be added</p>
-          </div>
-        </div>
-
         <div className="space-y-2">
           <div className="flex items-center justify-between mb-2">
             <Label className="text-sm font-semibold">Work Details ({workEntries.length})</Label>
@@ -309,6 +259,56 @@ const LabourForm = ({ onLabourAdded }: LabourFormProps) => {
                 </span>
               </div>
             )}
+          </div>
+        </div>
+
+        {/* New fields section - moved below work details */}
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 md:gap-4">
+          <div className="space-y-2">
+            <Label htmlFor="esiBf" className="text-sm md:text-base font-medium">
+              ESI/BF Amount (₹)
+            </Label>
+            <Input
+              id="esiBf"
+              type="number"
+              placeholder="0.00"
+              min="0"
+              step="0.01"
+              value={esiBfAmount}
+              onChange={(e) => setEsiBfAmount(e.target.value)}
+              className="input-field h-11"
+            />
+            <p className="text-xs text-muted-foreground">Will be deducted</p>
+          </div>
+          <div className="space-y-2">
+            <Label htmlFor="lastWeekBalance" className="text-sm md:text-base font-medium">
+              Last Week Balance (₹)
+            </Label>
+            <Input
+              id="lastWeekBalance"
+              type="number"
+              placeholder="0.00"
+              step="0.01"
+              value={lastWeekBalance}
+              onChange={(e) => setLastWeekBalance(e.target.value)}
+              className="input-field h-11"
+            />
+            <p className="text-xs text-muted-foreground">Will be added</p>
+          </div>
+          <div className="space-y-2">
+            <Label htmlFor="extraAmount" className="text-sm md:text-base font-medium">
+              Extra Amount (₹)
+            </Label>
+            <Input
+              id="extraAmount"
+              type="number"
+              placeholder="0.00"
+              step="0.01"
+              value={extraAmount}
+              onChange={(e) => setExtraAmount(e.target.value)}
+              className="input-field h-11"
+            />
+            <p className="text-xs text-muted-foreground">Will be added</p>
           </div>
         </div>
 

@@ -166,7 +166,7 @@ const WeeklyReport = () => {
   };
 
   const downloadAsImage = async () => {
-    const element = document.getElementById("weekly-report-content");
+    const element = document.getElementById("weekly-report-download");
     if (!element) {
       toast.error("Content not found");
       return;
@@ -177,6 +177,8 @@ const WeeklyReport = () => {
         backgroundColor: "#ffffff",
         scale: 2,
         logging: false,
+        width: 1200,
+        height: element.scrollHeight,
       });
 
       const link = document.createElement("a");
@@ -193,7 +195,7 @@ const WeeklyReport = () => {
   };
 
   const downloadAsPDF = async () => {
-    const element = document.getElementById("weekly-report-content");
+    const element = document.getElementById("weekly-report-download");
     if (!element) {
       toast.error("Content not found");
       return;
@@ -204,22 +206,18 @@ const WeeklyReport = () => {
         backgroundColor: "#ffffff",
         scale: 2,
         logging: false,
+        width: 1200,
+        height: element.scrollHeight,
       });
 
       const imgData = canvas.toDataURL("image/jpeg", 0.95);
-      const pdf = new jsPDF();
+      const pdf = new jsPDF({
+        orientation: canvas.width > canvas.height ? 'landscape' : 'portrait',
+        unit: 'px',
+        format: [canvas.width / 2, canvas.height / 2]
+      });
       
-      const pdfWidth = pdf.internal.pageSize.getWidth();
-      const pdfHeight = pdf.internal.pageSize.getHeight();
-      const canvasWidth = canvas.width;
-      const canvasHeight = canvas.height;
-      const ratio = Math.min(pdfWidth / canvasWidth, pdfHeight / canvasHeight);
-      const imgWidth = canvasWidth * ratio;
-      const imgHeight = canvasHeight * ratio;
-      const marginX = (pdfWidth - imgWidth) / 2;
-      const marginY = (pdfHeight - imgHeight) / 2;
-      
-      pdf.addImage(imgData, "JPEG", marginX, marginY, imgWidth, imgHeight);
+      pdf.addImage(imgData, "JPEG", 0, 0, canvas.width / 2, canvas.height / 2);
 
       const fileName = `weekly-report-${currentSummary?.weekStart.toISOString().split('T')[0]}.pdf`;
       pdf.save(fileName);
@@ -232,14 +230,14 @@ const WeeklyReport = () => {
   };
 
   return (
-    <div className="card-elevated p-4 md:p-6 animate-fade-in" style={{ animationDelay: "0.2s" }}>
-      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 mb-6">
+    <div className="card-elevated p-4 md:p-6 animate-fade-in max-w-7xl mx-auto" style={{ animationDelay: "0.2s" }}>
+      <div className="flex flex-col gap-4 mb-6">
         <div className="flex items-center gap-3">
-          <div className="w-10 h-10 rounded-lg gradient-primary flex items-center justify-center">
-            <Calendar className="w-5 h-5 text-primary-foreground" />
+          <div className="w-10 h-10 md:w-12 md:h-12 rounded-lg gradient-primary flex items-center justify-center">
+            <Calendar className="w-5 h-5 md:w-6 md:h-6 text-primary-foreground" />
           </div>
           <div>
-            <h2 className="font-display text-lg md:text-xl font-bold text-foreground">
+            <h2 className="font-display text-xl md:text-2xl font-bold text-foreground">
               Weekly Salary Report
             </h2>
             <p className="text-xs md:text-sm text-muted-foreground">
@@ -247,9 +245,9 @@ const WeeklyReport = () => {
             </p>
           </div>
         </div>
-        <div className="flex items-center gap-2 w-full sm:w-auto">
+        <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2 w-full">
           <Select value={selectedWeek} onValueChange={setSelectedWeek}>
-            <SelectTrigger className="w-full sm:w-[200px] md:w-[250px]">
+            <SelectTrigger className="w-full sm:w-[250px] h-11">
               <SelectValue placeholder="Select week" />
             </SelectTrigger>
             <SelectContent>
@@ -260,6 +258,30 @@ const WeeklyReport = () => {
               ))}
             </SelectContent>
           </Select>
+          {currentSummary && (
+            <div className="flex gap-2 w-full sm:w-auto">
+              <Button
+                onClick={downloadAsImage}
+                variant="outline"
+                className="flex-1 sm:flex-none h-11"
+                size="default"
+              >
+                <Download className="w-4 h-4 mr-2" />
+                <span className="hidden sm:inline">Image</span>
+                <span className="sm:hidden">Download Image</span>
+              </Button>
+              <Button
+                onClick={downloadAsPDF}
+                variant="outline"
+                className="flex-1 sm:flex-none h-11"
+                size="default"
+              >
+                <Download className="w-4 h-4 mr-2" />
+                <span className="hidden sm:inline">PDF</span>
+                <span className="sm:hidden">Download PDF</span>
+              </Button>
+            </div>
+          )}
         </div>
       </div>
 
@@ -281,6 +303,329 @@ const WeeklyReport = () => {
         </div>
       ) : currentSummary ? (
         <>
+          {/* Hidden Professional Download Version */}
+          <div 
+            id="weekly-report-download"
+            style={{
+              position: 'fixed',
+              left: '-9999px',
+              top: 0,
+              width: '1200px',
+              backgroundColor: '#ffffff',
+              fontFamily: 'Inter, system-ui, sans-serif',
+            }}
+          >
+            <div style={{ padding: '60px', backgroundColor: '#ffffff' }}>
+              {/* Header */}
+              <div style={{
+                textAlign: 'center',
+                marginBottom: '40px',
+                borderBottom: '4px solid #f59e0b',
+                paddingBottom: '30px'
+              }}>
+                <h1 style={{
+                  fontSize: '48px',
+                  fontWeight: '800',
+                  color: '#1a1a1a',
+                  marginBottom: '12px',
+                  letterSpacing: '-0.5px'
+                }}>AR TEXTILES</h1>
+                <h2 style={{
+                  fontSize: '32px',
+                  fontWeight: '600',
+                  color: '#f59e0b',
+                  marginBottom: '16px'
+                }}>Weekly Salary Report</h2>
+                <div style={{
+                  fontSize: '18px',
+                  color: '#666',
+                  display: 'flex',
+                  justifyContent: 'center',
+                  gap: '40px',
+                  marginTop: '20px'
+                }}>
+                  <div>
+                    <span style={{ fontWeight: '600', color: '#1a1a1a' }}>Week: </span>
+                    {formatWeekRange(currentSummary.weekStart, currentSummary.weekEnd)}
+                  </div>
+                  <div>
+                    <span style={{ fontWeight: '600', color: '#1a1a1a' }}>Generated: </span>
+                    {new Date().toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' })}
+                  </div>
+                </div>
+              </div>
+
+              {/* Summary Cards */}
+              <div style={{
+                display: 'grid',
+                gridTemplateColumns: 'repeat(4, 1fr)',
+                gap: '24px',
+                marginBottom: '40px'
+              }}>
+                <div style={{
+                  padding: '24px',
+                  backgroundColor: '#f0f9ff',
+                  border: '2px solid #3b82f6',
+                  borderRadius: '16px',
+                  textAlign: 'center'
+                }}>
+                  <div style={{ fontSize: '16px', color: '#666', marginBottom: '8px', fontWeight: '500' }}>
+                    Total Labours
+                  </div>
+                  <div style={{ fontSize: '42px', fontWeight: '800', color: '#3b82f6' }}>
+                    {currentSummary.labours.length}
+                  </div>
+                </div>
+                <div style={{
+                  padding: '24px',
+                  backgroundColor: '#f0fdf4',
+                  border: '2px solid #22c55e',
+                  borderRadius: '16px',
+                  textAlign: 'center'
+                }}>
+                  <div style={{ fontSize: '16px', color: '#666', marginBottom: '8px', fontWeight: '500' }}>
+                    Total Salary
+                  </div>
+                  <div style={{ fontSize: '42px', fontWeight: '800', color: '#22c55e' }}>
+                    ₹{currentSummary.totalSalary.toFixed(2)}
+                  </div>
+                </div>
+                <div style={{
+                  padding: '24px',
+                  backgroundColor: '#fef2f2',
+                  border: '2px solid #ef4444',
+                  borderRadius: '16px',
+                  textAlign: 'center'
+                }}>
+                  <div style={{ fontSize: '16px', color: '#666', marginBottom: '8px', fontWeight: '500' }}>
+                    Total Advance
+                  </div>
+                  <div style={{ fontSize: '42px', fontWeight: '800', color: '#ef4444' }}>
+                    ₹{currentSummary.totalAdvance.toFixed(2)}
+                  </div>
+                </div>
+                <div style={{
+                  padding: '24px',
+                  backgroundColor: '#fffbeb',
+                  border: '3px solid #f59e0b',
+                  borderRadius: '16px',
+                  textAlign: 'center'
+                }}>
+                  <div style={{ fontSize: '16px', color: '#666', marginBottom: '8px', fontWeight: '600' }}>
+                    Final Payout
+                  </div>
+                  <div style={{ fontSize: '48px', fontWeight: '900', color: '#f59e0b' }}>
+                    ₹{currentSummary.totalPayout.toFixed(2)}
+                  </div>
+                </div>
+              </div>
+
+              {/* Labour Details Table */}
+              <div style={{ marginBottom: '40px' }}>
+                <table style={{
+                  width: '100%',
+                  borderCollapse: 'collapse',
+                  border: '3px solid #e5e7eb',
+                  borderRadius: '16px',
+                  overflow: 'hidden'
+                }}>
+                  <thead>
+                    <tr style={{ backgroundColor: '#f59e0b' }}>
+                      <th style={{
+                        padding: '20px',
+                        textAlign: 'left',
+                        fontSize: '18px',
+                        fontWeight: '700',
+                        color: '#ffffff',
+                        borderRight: '2px solid #ffffff'
+                      }}>Labour Name</th>
+                      <th style={{
+                        padding: '20px',
+                        textAlign: 'center',
+                        fontSize: '18px',
+                        fontWeight: '700',
+                        color: '#ffffff',
+                        borderRight: '2px solid #ffffff'
+                      }}>Works</th>
+                      <th style={{
+                        padding: '20px',
+                        textAlign: 'right',
+                        fontSize: '18px',
+                        fontWeight: '700',
+                        color: '#ffffff',
+                        borderRight: '2px solid #ffffff'
+                      }}>Total Salary</th>
+                      <th style={{
+                        padding: '20px',
+                        textAlign: 'right',
+                        fontSize: '18px',
+                        fontWeight: '700',
+                        color: '#ffffff',
+                        borderRight: '2px solid #ffffff'
+                      }}>Advance</th>
+                      <th style={{
+                        padding: '20px',
+                        textAlign: 'right',
+                        fontSize: '18px',
+                        fontWeight: '700',
+                        color: '#ffffff'
+                      }}>Final Amount</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {currentSummary.labours.map((labour, index) => (
+                      <tr key={index} style={{
+                        backgroundColor: index % 2 === 0 ? '#ffffff' : '#f9fafb',
+                        borderBottom: '2px solid #e5e7eb'
+                      }}>
+                        <td style={{
+                          padding: '18px 20px',
+                          fontSize: '17px',
+                          fontWeight: '600',
+                          color: '#1a1a1a',
+                          borderRight: '1px solid #e5e7eb'
+                        }}>{labour.name}</td>
+                        <td style={{
+                          padding: '18px 20px',
+                          fontSize: '17px',
+                          fontWeight: '500',
+                          color: '#666',
+                          textAlign: 'center',
+                          borderRight: '1px solid #e5e7eb'
+                        }}>{labour.worksCount}</td>
+                        <td style={{
+                          padding: '18px 20px',
+                          fontSize: '18px',
+                          fontWeight: '700',
+                          color: '#22c55e',
+                          textAlign: 'right',
+                          borderRight: '1px solid #e5e7eb'
+                        }}>₹{labour.totalSalary.toFixed(2)}</td>
+                        <td style={{
+                          padding: '18px 20px',
+                          fontSize: '18px',
+                          fontWeight: '700',
+                          color: '#ef4444',
+                          textAlign: 'right',
+                          borderRight: '1px solid #e5e7eb'
+                        }}>{labour.advance > 0 ? `₹${labour.advance.toFixed(2)}` : '-'}</td>
+                        <td style={{
+                          padding: '18px 20px',
+                          fontSize: '20px',
+                          fontWeight: '800',
+                          color: '#f59e0b',
+                          textAlign: 'right'
+                        }}>₹{labour.finalAmount.toFixed(2)}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                  <tfoot>
+                    <tr style={{
+                      backgroundColor: '#fef3c7',
+                      borderTop: '4px solid #f59e0b'
+                    }}>
+                      <td style={{
+                        padding: '22px 20px',
+                        fontSize: '20px',
+                        fontWeight: '800',
+                        color: '#1a1a1a',
+                        borderRight: '1px solid #f59e0b'
+                      }}>TOTAL</td>
+                      <td style={{
+                        padding: '22px 20px',
+                        fontSize: '18px',
+                        fontWeight: '700',
+                        color: '#1a1a1a',
+                        textAlign: 'center',
+                        borderRight: '1px solid #f59e0b'
+                      }}>{currentSummary.labours.reduce((sum, l) => sum + l.worksCount, 0)}</td>
+                      <td style={{
+                        padding: '22px 20px',
+                        fontSize: '20px',
+                        fontWeight: '800',
+                        color: '#22c55e',
+                        textAlign: 'right',
+                        borderRight: '1px solid #f59e0b'
+                      }}>₹{currentSummary.totalSalary.toFixed(2)}</td>
+                      <td style={{
+                        padding: '22px 20px',
+                        fontSize: '20px',
+                        fontWeight: '800',
+                        color: '#ef4444',
+                        textAlign: 'right',
+                        borderRight: '1px solid #f59e0b'
+                      }}>₹{currentSummary.totalAdvance.toFixed(2)}</td>
+                      <td style={{
+                        padding: '22px 20px',
+                        fontSize: '24px',
+                        fontWeight: '900',
+                        color: '#f59e0b',
+                        textAlign: 'right'
+                      }}>₹{currentSummary.totalPayout.toFixed(2)}</td>
+                    </tr>
+                  </tfoot>
+                </table>
+              </div>
+
+              {/* Summary Footer */}
+              <div style={{
+                backgroundColor: '#fef3c7',
+                border: '3px solid #f59e0b',
+                borderRadius: '16px',
+                padding: '30px',
+                marginTop: '40px'
+              }}>
+                <div style={{
+                  display: 'grid',
+                  gridTemplateColumns: 'repeat(3, 1fr)',
+                  gap: '30px',
+                  textAlign: 'center'
+                }}>
+                  <div>
+                    <div style={{ fontSize: '16px', color: '#666', marginBottom: '8px', fontWeight: '600' }}>
+                      Total Labour Count
+                    </div>
+                    <div style={{ fontSize: '32px', fontWeight: '800', color: '#1a1a1a' }}>
+                      {currentSummary.labours.length}
+                    </div>
+                  </div>
+                  <div>
+                    <div style={{ fontSize: '16px', color: '#666', marginBottom: '8px', fontWeight: '600' }}>
+                      Total Works Completed
+                    </div>
+                    <div style={{ fontSize: '32px', fontWeight: '800', color: '#1a1a1a' }}>
+                      {currentSummary.labours.reduce((sum, l) => sum + l.worksCount, 0)}
+                    </div>
+                  </div>
+                  <div>
+                    <div style={{ fontSize: '16px', color: '#666', marginBottom: '8px', fontWeight: '600' }}>
+                      Average per Labour
+                    </div>
+                    <div style={{ fontSize: '32px', fontWeight: '800', color: '#f59e0b' }}>
+                      ₹{(currentSummary.totalPayout / currentSummary.labours.length).toFixed(2)}
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              {/* Footer */}
+              <div style={{
+                marginTop: '50px',
+                paddingTop: '30px',
+                borderTop: '2px solid #e5e7eb',
+                textAlign: 'center',
+                color: '#999'
+              }}>
+                <p style={{ fontSize: '14px', marginBottom: '8px' }}>
+                  Generated by AR TEXTILES Labour Management System
+                </p>
+                <p style={{ fontSize: '12px' }}>
+                  © {new Date().getFullYear()} AR TEXTILES — Garment Manufacturing
+                </p>
+              </div>
+            </div>
+          </div>
+
           <div id="weekly-report-content" className="space-y-4 md:space-y-6">
             {/* Summary Cards */}
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 md:gap-4">
@@ -430,26 +775,6 @@ const WeeklyReport = () => {
                 </div>
               </div>
             </div>
-          </div>
-
-          {/* Download Buttons */}
-          <div className="flex flex-col sm:flex-row gap-2 mt-6 pt-4 border-t border-border">
-            <Button
-              onClick={downloadAsImage}
-              variant="outline"
-              className="w-full sm:w-auto"
-            >
-              <Download className="w-4 h-4 mr-2" />
-              Download as Image
-            </Button>
-            <Button
-              onClick={downloadAsPDF}
-              variant="outline"
-              className="w-full sm:w-auto"
-            >
-              <Download className="w-4 h-4 mr-2" />
-              Download as PDF
-            </Button>
           </div>
         </>
       ) : null}

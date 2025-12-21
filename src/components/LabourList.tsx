@@ -69,7 +69,6 @@ const LabourList = ({ refreshTrigger }: LabourListProps) => {
   const [expandedLabour, setExpandedLabour] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
-  const [deleteAllDialogOpen, setDeleteAllDialogOpen] = useState(false);
   const [labourToDelete, setLabourToDelete] = useState<string | null>(null);
   const [editingWork, setEditingWork] = useState<WorkDetail | null>(null);
   const [editValues, setEditValues] = useState({ ioNo: "", workType: "", pieces: "", rate: "", advance: "", esiBf: "", lastWeekBalance: "", extraAmount: "" });
@@ -472,21 +471,6 @@ const LabourList = ({ refreshTrigger }: LabourListProps) => {
     }
   };
 
-  const confirmDeleteAll = async () => {
-    try {
-      const { error } = await supabase.from("labours").delete().neq("id", "00000000-0000-0000-0000-000000000000");
-      
-      if (error) throw error;
-      toast.success("All labour records deleted successfully");
-      fetchLabours();
-    } catch (error) {
-      console.error("Error deleting all labours:", error);
-      toast.error("Failed to delete all records");
-    } finally {
-      setDeleteAllDialogOpen(false);
-    }
-  };
-
   const totalPayout = labours.reduce((sum, l) => sum + ((l.total_salary || 0) - (l.advance || 0) - (l.esi_bf_amount || 0) + (l.last_week_balance || 0) + (l.extra_amount || 0)), 0);
 
   return (
@@ -523,18 +507,6 @@ const LabourList = ({ refreshTrigger }: LabourListProps) => {
             </Select>
           </div>
           <div className="flex gap-2">
-            {labours.length > 0 && (
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={() => setDeleteAllDialogOpen(true)}
-                className="text-destructive hover:text-destructive hover:bg-destructive/10 text-xs sm:text-sm h-9"
-              >
-                <Trash2 className="w-3.5 h-3.5 sm:w-4 sm:h-4 mr-1 sm:mr-2" />
-                <span className="hidden sm:inline">Delete All</span>
-                <span className="sm:hidden">Delete</span>
-              </Button>
-            )}
             <Button
               variant="outline"
               size="icon"
@@ -1012,25 +984,6 @@ const LabourList = ({ refreshTrigger }: LabourListProps) => {
             <AlertDialogCancel>Cancel</AlertDialogCancel>
             <AlertDialogAction onClick={confirmDelete} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">
               Delete
-            </AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
-
-      <AlertDialog open={deleteAllDialogOpen} onOpenChange={setDeleteAllDialogOpen}>
-        <AlertDialogContent>
-          <AlertDialogHeader>
-            <AlertDialogTitle>Delete All Labour Records</AlertDialogTitle>
-            <AlertDialogDescription>
-              Are you sure you want to delete <strong>ALL {labours.length} labour(s)</strong> and{" "}
-              <strong>{allLabourData.length} work record(s)</strong>?
-              This will permanently remove all data and cannot be undone.
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel>Cancel</AlertDialogCancel>
-            <AlertDialogAction onClick={confirmDeleteAll} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">
-              Delete All
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>

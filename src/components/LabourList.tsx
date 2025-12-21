@@ -1,5 +1,5 @@
 import { useEffect, useState, useRef } from "react";
-import { Users, Trash2, RefreshCw, ChevronDown, ChevronUp, Edit, Download } from "lucide-react";
+import { Users, Trash2, RefreshCw, ChevronDown, ChevronUp, Edit, Download, Calendar } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -19,6 +19,13 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import html2canvas from "html2canvas";
@@ -67,6 +74,33 @@ const LabourList = ({ refreshTrigger }: LabourListProps) => {
   const [editingWork, setEditingWork] = useState<WorkDetail | null>(null);
   const [editValues, setEditValues] = useState({ ioNo: "", workType: "", pieces: "", rate: "", advance: "", esiBf: "", lastWeekBalance: "", extraAmount: "" });
   const downloadRefs = useRef<{ [key: string]: HTMLDivElement | null }>({});
+  const [selectedWeek, setSelectedWeek] = useState<string>("current");
+  const [availableWeeks, setAvailableWeeks] = useState<{ label: string; value: string; start: Date; end: Date }[]>([]);
+
+  // Helper function to get week start and end dates (Monday to Sunday)
+  const getWeekRange = (date: Date) => {
+    const d = new Date(date); // Create copy to avoid mutation
+    const day = d.getDay(); // 0=Sunday, 1=Monday, ..., 6=Saturday
+    const diff = d.getDate() - day + (day === 0 ? -6 : 1); // Adjust to Monday
+    
+    const monday = new Date(d.getFullYear(), d.getMonth(), diff);
+    monday.setHours(0, 0, 0, 0);
+    
+    const sunday = new Date(monday);
+    sunday.setDate(monday.getDate() + 6);
+    sunday.setHours(23, 59, 59, 999);
+    
+    return { start: monday, end: sunday };
+  };
+
+  // Get current week
+  const getCurrentWeek = () => getWeekRange(new Date());
+
+  // Format date for display
+  const formatDateRange = (start: Date, end: Date) => {
+    const options: Intl.DateTimeFormatOptions = { month: 'short', day: 'numeric' };
+    return `${start.toLocaleDateString('en-IN', options)} - ${end.toLocaleDateString('en-IN', options)}, ${end.getFullYear()}`;
+  };
 
   const fetchLabours = async () => {
     setIsLoading(true);
@@ -97,29 +131,11 @@ const LabourList = ({ refreshTrigger }: LabourListProps) => {
       
       setAllLabourData(dataWithAdvance);
       
-      // Group by base labour name (before the pipe)
-      const groupedData: { [key: string]: Labour } = {};
-      dataWithAdvance.forEach((labour) => {
-        const baseName = labour.name.split(' | ')[0];
-        if (groupedData[baseName]) {
-          groupedData[baseName].total_salary += labour.total_salary || 0;
-          groupedData[baseName].advance = (groupedData[baseName].advance || 0) + (labour.advance || 0);
-          groupedData[baseName].esi_bf_amount = (groupedData[baseName].esi_bf_amount || 0) + (labour.esi_bf_amount || 0);
-          groupedData[baseName].last_week_balance = (groupedData[baseName].last_week_balance || 0) + (labour.last_week_balance || 0);
-          groupedData[baseName].extra_amount = (groupedData[baseName].extra_amount || 0) + (labour.extra_amount || 0);
-        } else {
-          groupedData[baseName] = { 
-            ...labour, 
-            name: baseName, 
-            advance: labour.advance || 0,
-            esi_bf_amount: labour.esi_bf_amount || 0,
-            last_week_balance: labour.last_week_balance || 0,
-            extra_amount: labour.extra_amount || 0
-          };
-        }
-      });
+      // Generate available weeks from data
+      generateAvailableWeeks(dataWithAdvance);
       
-      setLabours(Object.values(groupedData));
+      // Filter data based on selected week
+      filterLaboursByWeek(dataWithAdvance, selectedWeek);
     } catch (error) {
       console.error("Error fetching labours:", error);
       toast.error("Failed to load labours");
@@ -128,8 +144,125 @@ const LabourList = ({ refreshTrigger }: LabourListProps) => {
     }
   };
 
+  const generateAvailableWeeks = (data: Labour[]) => {
+    if (data.length === 0) {
+      setAvailableWeeks([]);
+      return;
+    }
+
+    const weeks: { label: string; value: string; start: Date; end: Date }[] = [];
+    const currentWeek = getCurrentWeek();
+    
+    // Add current week
+    weeks.push({
+      label: `Current Week (${formatDateRange(currentWeek.start, currentWeek.end)})`,
+      value: "current",
+      start: currentWeek.start,
+      end: currentWeek.end
+    });
+
+    // Get unique weeks from data
+    const weekMap = new Map<string, { start: Date; end: Date }>();
+    
+    data.forEach(labour => {
+      const createdDate = new Date(labour.created_at);
+      const weekRange = getWeekRange(createdDate);
+      const weekKey = `${weekRange.start.toISOString()}_${weekRange.end.toISOString()}`;
+      
+      // Don't add current week again
+      if (createdDate >= currentWeek.start && createdDate <= currentWeek.end) {
+        return;
+      }
+      
+      if (!weekMap.has(weekKey)) {
+        weekMap.set(weekKey, weekRange);
+      }
+    });
+
+    // Convert map to array and sort by date (most recent first)
+    const pastWeeks = Array.from(weekMap.values())
+      .sort((a, b) => b.start.getTime() - a.start.getTime())
+      .map((range, index) => ({
+        label: `Week ${index + 1} - ${formatDateRange(range.start, range.end)}`,
+        value: `${range.start.toISOString()}_${range.end.toISOString()}`,
+        start: range.start,
+        end: range.end
+      }));
+
+    setAvailableWeeks([...weeks, ...pastWeeks]);
+  };
+
+  const filterLaboursByWeek = (data: Labour[], weekValue: string) => {
+    let filteredData: Labour[];
+    
+    if (weekValue === "current") {
+      const currentWeek = getCurrentWeek();
+      filteredData = data.filter(labour => {
+        const createdDate = new Date(labour.created_at);
+        const createdTime = createdDate.getTime();
+        return createdTime >= currentWeek.start.getTime() && createdTime <= currentWeek.end.getTime();
+      });
+    } else {
+      const [startStr, endStr] = weekValue.split('_');
+      const weekStart = new Date(startStr);
+      const weekEnd = new Date(endStr);
+      
+      filteredData = data.filter(labour => {
+        const createdDate = new Date(labour.created_at);
+        const createdTime = createdDate.getTime();
+        return createdTime >= weekStart.getTime() && createdTime <= weekEnd.getTime();
+      });
+    }
+    
+    // Group by base labour name (before the pipe)
+    const groupedData: { [key: string]: Labour } = {};
+    filteredData.forEach((labour) => {
+      const baseName = labour.name.split(' | ')[0];
+      if (groupedData[baseName]) {
+        groupedData[baseName].total_salary += labour.total_salary || 0;
+        groupedData[baseName].advance = (groupedData[baseName].advance || 0) + (labour.advance || 0);
+        groupedData[baseName].esi_bf_amount = (groupedData[baseName].esi_bf_amount || 0) + (labour.esi_bf_amount || 0);
+        groupedData[baseName].last_week_balance = (groupedData[baseName].last_week_balance || 0) + (labour.last_week_balance || 0);
+        groupedData[baseName].extra_amount = (groupedData[baseName].extra_amount || 0) + (labour.extra_amount || 0);
+      } else {
+        groupedData[baseName] = { 
+          ...labour, 
+          name: baseName, 
+          advance: labour.advance || 0,
+          esi_bf_amount: labour.esi_bf_amount || 0,
+          last_week_balance: labour.last_week_balance || 0,
+          extra_amount: labour.extra_amount || 0
+        };
+      }
+    });
+    
+    setLabours(Object.values(groupedData));
+  };
+
   const getLabourDetails = (baseName: string): WorkDetail[] => {
-    return allLabourData
+    // Filter based on selected week to ensure no merging across weeks
+    let filteredData: Labour[];
+    
+    if (selectedWeek === "current") {
+      const currentWeek = getCurrentWeek();
+      filteredData = allLabourData.filter(labour => {
+        const createdDate = new Date(labour.created_at);
+        const createdTime = createdDate.getTime();
+        return createdTime >= currentWeek.start.getTime() && createdTime <= currentWeek.end.getTime();
+      });
+    } else {
+      const [startStr, endStr] = selectedWeek.split('_');
+      const weekStart = new Date(startStr);
+      const weekEnd = new Date(endStr);
+      
+      filteredData = allLabourData.filter(labour => {
+        const createdDate = new Date(labour.created_at);
+        const createdTime = createdDate.getTime();
+        return createdTime >= weekStart.getTime() && createdTime <= weekEnd.getTime();
+      });
+    }
+    
+    return filteredData
       .filter((labour) => labour.name.startsWith(baseName + ' |'))
       .map((labour) => {
         const parts = labour.name.split(' | ');
@@ -156,6 +289,13 @@ const LabourList = ({ refreshTrigger }: LabourListProps) => {
   useEffect(() => {
     fetchLabours();
   }, [refreshTrigger]);
+
+  // Refetch when week selection changes
+  useEffect(() => {
+    if (allLabourData.length > 0) {
+      filterLaboursByWeek(allLabourData, selectedWeek);
+    }
+  }, [selectedWeek]);
 
   const openDeleteDialog = (baseName: string) => {
     setLabourToDelete(baseName);
@@ -350,42 +490,61 @@ const LabourList = ({ refreshTrigger }: LabourListProps) => {
   const totalPayout = labours.reduce((sum, l) => sum + ((l.total_salary || 0) - (l.advance || 0) - (l.esi_bf_amount || 0) + (l.last_week_balance || 0) + (l.extra_amount || 0)), 0);
 
   return (
-    <div className="card-elevated p-6 animate-fade-in" style={{ animationDelay: "0.1s" }}>
-      <div className="flex items-center justify-between mb-6">
+    <div className="card-elevated p-4 sm:p-6 animate-fade-in" style={{ animationDelay: "0.1s" }}>
+      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between mb-4 sm:mb-6 gap-3">
         <div className="flex items-center gap-3">
-          <div className="w-10 h-10 rounded-lg gradient-primary flex items-center justify-center">
+          <div className="w-10 h-10 rounded-lg gradient-primary flex items-center justify-center flex-shrink-0">
             <Users className="w-5 h-5 text-primary-foreground" />
           </div>
           <div>
-            <h2 className="font-display text-xl font-bold text-foreground">
+            <h2 className="font-display text-lg sm:text-xl font-bold text-foreground">
               Labour List
             </h2>
-            <p className="text-sm text-muted-foreground">
+            <p className="text-xs sm:text-sm text-muted-foreground">
               {labours.length} labour{labours.length !== 1 ? "s" : ""} recorded
             </p>
           </div>
         </div>
-        <div className="flex gap-2">
-          {labours.length > 0 && (
+        <div className="flex flex-wrap items-center gap-2 w-full sm:w-auto">
+          {/* Week Selector */}
+          <div className="flex items-center gap-2 flex-1 sm:flex-initial min-w-0">
+            <Calendar className="w-4 h-4 text-muted-foreground flex-shrink-0" />
+            <Select value={selectedWeek} onValueChange={setSelectedWeek}>
+              <SelectTrigger className="w-full sm:w-[200px] h-9">
+                <SelectValue placeholder="Select week" />
+              </SelectTrigger>
+              <SelectContent>
+                {availableWeeks.map((week) => (
+                  <SelectItem key={week.value} value={week.value}>
+                    {week.label}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+          <div className="flex gap-2">
+            {labours.length > 0 && (
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setDeleteAllDialogOpen(true)}
+                className="text-destructive hover:text-destructive hover:bg-destructive/10 text-xs sm:text-sm h-9"
+              >
+                <Trash2 className="w-3.5 h-3.5 sm:w-4 sm:h-4 mr-1 sm:mr-2" />
+                <span className="hidden sm:inline">Delete All</span>
+                <span className="sm:hidden">Delete</span>
+              </Button>
+            )}
             <Button
               variant="outline"
-              size="sm"
-              onClick={() => setDeleteAllDialogOpen(true)}
-              className="text-destructive hover:text-destructive hover:bg-destructive/10"
+              size="icon"
+              onClick={fetchLabours}
+              disabled={isLoading}
+              className="rounded-lg h-9 w-9"
             >
-              <Trash2 className="w-4 h-4 mr-2" />
-              Delete All
+              <RefreshCw className={`w-4 h-4 ${isLoading ? "animate-spin" : ""}`} />
             </Button>
-          )}
-          <Button
-            variant="outline"
-            size="icon"
-            onClick={fetchLabours}
-            disabled={isLoading}
-            className="rounded-lg"
-          >
-            <RefreshCw className={`w-4 h-4 ${isLoading ? "animate-spin" : ""}`} />
-          </Button>
+          </div>
         </div>
       </div>
 
@@ -399,18 +558,20 @@ const LabourList = ({ refreshTrigger }: LabourListProps) => {
           ))}
         </div>
       ) : labours.length === 0 ? (
-        <div className="text-center py-12">
-          <div className="w-16 h-16 rounded-full bg-muted mx-auto mb-4 flex items-center justify-center">
-            <Users className="w-8 h-8 text-muted-foreground" />
+        <div className="text-center py-8 sm:py-12">
+          <div className="w-12 h-12 sm:w-16 sm:h-16 rounded-full bg-muted mx-auto mb-4 flex items-center justify-center">
+            <Users className="w-6 h-6 sm:w-8 sm:h-8 text-muted-foreground" />
           </div>
-          <p className="text-muted-foreground">No labours added yet</p>
-          <p className="text-sm text-muted-foreground/70">
-            Add your first labour using the form
+          <p className="text-sm sm:text-base text-muted-foreground">
+            {selectedWeek === "current" ? "No labours added this week" : "No labours for selected week"}
+          </p>
+          <p className="text-xs sm:text-sm text-muted-foreground/70">
+            {selectedWeek === "current" ? "Add your first labour using the form" : "Try selecting a different week"}
           </p>
         </div>
       ) : (
         <>
-          <div className="space-y-3 max-h-[400px] overflow-y-auto pr-2">
+          <div className="space-y-3 max-h-[400px] sm:max-h-[500px] overflow-y-auto pr-2">
             {labours.map((labour, index) => {
               const isExpanded = expandedLabour === labour.name;
               const workDetails = getLabourDetails(labour.name);
@@ -709,37 +870,37 @@ const LabourList = ({ refreshTrigger }: LabourListProps) => {
                                 </div>
                               </div>
                             ) : (
-                              <div className="flex items-center justify-between gap-3">
-                                <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3 text-sm flex-1">
+                              <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
+                                <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-2 sm:gap-3 text-sm flex-1 w-full">
                                   <div>
                                     <p className="text-muted-foreground text-xs">IO No</p>
-                                    <p className="font-medium text-foreground">{work.ioNo}</p>
+                                    <p className="font-medium text-foreground text-xs sm:text-sm break-all">{work.ioNo}</p>
                                   </div>
                                   <div>
                                     <p className="text-muted-foreground text-xs">Work Type</p>
-                                    <p className="font-medium text-foreground">{work.workType}</p>
+                                    <p className="font-medium text-foreground text-xs sm:text-sm break-words">{work.workType}</p>
                                   </div>
                                   <div>
                                     <p className="text-muted-foreground text-xs">Pieces</p>
-                                    <p className="font-medium text-foreground">{work.pieces}</p>
+                                    <p className="font-medium text-foreground text-xs sm:text-sm">{work.pieces}</p>
                                   </div>
                                   <div>
                                     <p className="text-muted-foreground text-xs">Rate</p>
-                                    <p className="font-medium text-foreground">₹{work.rate_per_piece}</p>
+                                    <p className="font-medium text-foreground text-xs sm:text-sm">₹{work.rate_per_piece}</p>
                                   </div>
                                   <div>
                                     <p className="text-muted-foreground text-xs">Subtotal</p>
-                                    <p className="font-semibold text-accent">₹{work.total_salary?.toFixed(2)}</p>
+                                    <p className="font-semibold text-accent text-xs sm:text-sm">₹{work.total_salary?.toFixed(2)}</p>
                                   </div>
                                 </div>
-                                <div className="flex gap-1">
+                                <div className="flex gap-1 flex-shrink-0">
                                   <Button
                                     variant="ghost"
                                     size="icon"
                                     onClick={() => startEditWork(work)}
-                                    className="h-8 w-8 text-muted-foreground hover:text-primary"
+                                    className="h-7 w-7 sm:h-8 sm:w-8 text-muted-foreground hover:text-primary"
                                   >
-                                    <Edit className="w-4 h-4" />
+                                    <Edit className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
                                   </Button>
                                   <Button
                                     variant="ghost"
@@ -757,9 +918,9 @@ const LabourList = ({ refreshTrigger }: LabourListProps) => {
                                         }
                                       }
                                     }}
-                                    className="h-8 w-8 text-muted-foreground hover:text-destructive"
+                                    className="h-7 w-7 sm:h-8 sm:w-8 text-muted-foreground hover:text-destructive"
                                   >
-                                    <Trash2 className="w-4 h-4" />
+                                    <Trash2 className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
                                   </Button>
                                 </div>
                               </div>
@@ -769,28 +930,28 @@ const LabourList = ({ refreshTrigger }: LabourListProps) => {
                       </div>
                       {((labour.advance || 0) > 0 || (labour.esi_bf_amount || 0) > 0 || (labour.last_week_balance || 0) !== 0 || (labour.extra_amount || 0) !== 0) && (
                         <div className="mt-3 pt-3 border-t border-border">
-                          <div className="bg-muted/50 rounded-lg p-3">
-                            <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3 text-sm">
+                          <div className="bg-muted/50 rounded-lg p-2 sm:p-3">
+                            <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-2 sm:gap-3 text-sm">
                               <div className="text-center sm:text-left">
                                 <p className="text-muted-foreground text-xs mb-1">Total Salary</p>
-                                <p className="font-bold text-base md:text-lg">₹{labour.total_salary?.toFixed(2) || "0.00"}</p>
+                                <p className="font-bold text-sm sm:text-base md:text-lg">₹{labour.total_salary?.toFixed(2) || "0.00"}</p>
                               </div>
                               {(labour.advance || 0) > 0 && (
                                 <div className="text-center sm:text-left">
                                   <p className="text-muted-foreground text-xs mb-1">Advance Paid</p>
-                                  <p className="font-bold text-base md:text-lg text-destructive">- ₹{labour.advance?.toFixed(2) || "0.00"}</p>
+                                  <p className="font-bold text-sm sm:text-base md:text-lg text-destructive">- ₹{labour.advance?.toFixed(2) || "0.00"}</p>
                                 </div>
                               )}
                               {(labour.esi_bf_amount || 0) > 0 && (
                                 <div className="text-center sm:text-left">
                                   <p className="text-muted-foreground text-xs mb-1">ESI/BF</p>
-                                  <p className="font-bold text-base md:text-lg text-destructive">- ₹{labour.esi_bf_amount?.toFixed(2) || "0.00"}</p>
+                                  <p className="font-bold text-sm sm:text-base md:text-lg text-destructive">- ₹{labour.esi_bf_amount?.toFixed(2) || "0.00"}</p>
                                 </div>
                               )}
                               {(labour.last_week_balance || 0) !== 0 && (
                                 <div className="text-center sm:text-left">
                                   <p className="text-muted-foreground text-xs mb-1">Last Week Bal</p>
-                                  <p className={`font-bold text-base md:text-lg ${(labour.last_week_balance || 0) >= 0 ? 'text-green-600' : 'text-destructive'}`}>
+                                  <p className={`font-bold text-sm sm:text-base md:text-lg ${(labour.last_week_balance || 0) >= 0 ? 'text-green-600' : 'text-destructive'}`}>
                                     {(labour.last_week_balance || 0) >= 0 ? '+' : ''} ₹{labour.last_week_balance?.toFixed(2) || "0.00"}
                                   </p>
                                 </div>
@@ -798,14 +959,14 @@ const LabourList = ({ refreshTrigger }: LabourListProps) => {
                               {(labour.extra_amount || 0) !== 0 && (
                                 <div className="text-center sm:text-left">
                                   <p className="text-muted-foreground text-xs mb-1">Extra Amount</p>
-                                  <p className={`font-bold text-base md:text-lg ${(labour.extra_amount || 0) >= 0 ? 'text-green-600' : 'text-destructive'}`}>
+                                  <p className={`font-bold text-sm sm:text-base md:text-lg ${(labour.extra_amount || 0) >= 0 ? 'text-green-600' : 'text-destructive'}`}>
                                     {(labour.extra_amount || 0) >= 0 ? '+' : ''} ₹{labour.extra_amount?.toFixed(2) || "0.00"}
                                   </p>
                                 </div>
                               )}
                               <div className="text-center sm:text-left col-span-2 sm:col-span-1">
                                 <p className="text-muted-foreground text-xs mb-1">Final Amount</p>
-                                <p className="font-bold text-base md:text-lg text-accent">₹{((labour.total_salary || 0) - (labour.advance || 0) - (labour.esi_bf_amount || 0) + (labour.last_week_balance || 0) + (labour.extra_amount || 0)).toFixed(2)}</p>
+                                <p className="font-bold text-sm sm:text-base md:text-lg text-accent">₹{((labour.total_salary || 0) - (labour.advance || 0) - (labour.esi_bf_amount || 0) + (labour.last_week_balance || 0) + (labour.extra_amount || 0)).toFixed(2)}</p>
                               </div>
                             </div>
                           </div>
@@ -819,16 +980,16 @@ const LabourList = ({ refreshTrigger }: LabourListProps) => {
             })}
           </div>
 
-          <div className="mt-6 pt-4 border-t border-border">
-            <div className="flex items-center justify-between">
+          <div className="mt-4 sm:mt-6 pt-4 border-t border-border">
+            <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2">
               <div>
                 <p className="text-sm text-muted-foreground">Total Payout</p>
                 <p className="text-xs text-muted-foreground/70">
-                  For all {labours.length} labours (after advances)
+                  For all {labours.length} labours (after deductions)
                 </p>
               </div>
-              <div className="text-right">
-                <p className="font-display text-3xl font-bold text-accent">
+              <div className="text-left sm:text-right">
+                <p className="font-display text-2xl sm:text-3xl font-bold text-accent">
                   ₹{totalPayout.toFixed(2)}
                 </p>
               </div>

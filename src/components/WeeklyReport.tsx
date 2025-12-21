@@ -54,15 +54,17 @@ interface WeeklySummary {
 
 const WeeklyReport = () => {
   const [weeklySummaries, setWeeklySummaries] = useState<WeeklySummary[]>([]);
-  const [selectedWeek, setSelectedWeek] = useState<string>("0");
+  const [selectedWeek, setSelectedWeek] = useState<string>("current");
   const [isLoading, setIsLoading] = useState(true);
   const downloadRef = useState<HTMLDivElement | null>(null)[0];
 
+  // Get week range from Monday to Sunday
   const getWeekRange = (date: Date): { start: Date; end: Date } => {
-    const d = new Date(date);
-    const day = d.getDay();
+    const d = new Date(date); // Create copy to avoid mutation
+    const day = d.getDay(); // 0=Sunday, 1=Monday, ..., 6=Saturday
     const diff = d.getDate() - day + (day === 0 ? -6 : 1); // Adjust to Monday
-    const weekStart = new Date(d.setDate(diff));
+    
+    const weekStart = new Date(d.getFullYear(), d.getMonth(), diff);
     weekStart.setHours(0, 0, 0, 0);
     
     const weekEnd = new Date(weekStart);
@@ -83,15 +85,15 @@ const WeeklyReport = () => {
       if (error) throw error;
 
       // Group data by week
-      const weeklyMap = new Map<string, Labour[]>();
+      const weeklyMap = new Map<string, { labours: Labour[]; weekStart: Date; weekEnd: Date }>();
       
       (data || []).forEach((labour) => {
         const labourDate = new Date(labour.created_at);
-        const { start } = getWeekRange(labourDate);
-        const weekKey = start.toISOString().split('T')[0];
+        const weekRange = getWeekRange(labourDate);
+        const weekKey = weekRange.start.toISOString().split('T')[0];
         
         if (!weeklyMap.has(weekKey)) {
-          weeklyMap.set(weekKey, []);
+          weeklyMap.set(weekKey, { labours: [], weekStart: weekRange.start, weekEnd: weekRange.end });
         }
         
         const parts = labour.name.split(' | ');
@@ -100,7 +102,7 @@ const WeeklyReport = () => {
         const lastWeekBal = parseFloat(parts[5] || '0');
         const extra = parseFloat(parts[6] || '0');
         
-        weeklyMap.get(weekKey)!.push({ 
+        weeklyMap.get(weekKey)!.labours.push({ 
           ...labour, 
           advance,
           esi_bf_amount: labour.esi_bf_amount || esiBf || 0,
@@ -111,11 +113,13 @@ const WeeklyReport = () => {
 
       // Create weekly summaries
       const summaries: WeeklySummary[] = [];
+      const currentWeek = getWeekRange(new Date());
       
-      weeklyMap.forEach((labours, weekKey) => {
-        const weekStart = new Date(weekKey);
-        const weekEnd = new Date(weekStart);
-        weekEnd.setDate(weekStart.getDate() + 6);
+      weeklyMap.forEach((weekData, weekKey) => {
+        // Use the stored week range instead of recalculating
+        const weekStart = weekData.weekStart;
+        const weekEnd = weekData.weekEnd;
+        const labours = weekData.labours;
 
         // Group by labour name
         const labourMap = new Map<string, {
@@ -183,6 +187,15 @@ const WeeklyReport = () => {
 
       summaries.sort((a, b) => b.weekStart.getTime() - a.weekStart.getTime());
       setWeeklySummaries(summaries);
+      
+      // Auto-select current week on initial load
+      if (selectedWeek === "current" && summaries.length > 0) {
+        // Try to find current week, otherwise use most recent week (index 0)
+        const currentWeekIndex = summaries.findIndex(s => 
+          s.weekStart.getTime() === currentWeek.start.getTime()
+        );
+        setSelectedWeek(currentWeekIndex !== -1 ? currentWeekIndex.toString() : "0");
+      }
     } catch (error) {
       console.error("Error fetching weekly data:", error);
       toast.error("Failed to load weekly reports");
@@ -200,6 +213,12 @@ const WeeklyReport = () => {
 
   const formatWeekRange = (start: Date, end: Date) => {
     return `${start.toLocaleDateString("en-IN", { day: "numeric", month: "short" })} - ${end.toLocaleDateString("en-IN", { day: "numeric", month: "short", year: "numeric" })}`;
+  };
+
+  const isCurrentWeek = (weekStart: Date) => {
+    const now = new Date();
+    const currentWeekRange = getWeekRange(now);
+    return weekStart.getTime() === currentWeekRange.start.getTime();
   };
 
   const downloadAsImage = async () => {
@@ -283,36 +302,40 @@ const WeeklyReport = () => {
           </div>
         </div>
         <div className="flex flex-col gap-2">
-          <Select value={selectedWeek} onValueChange={setSelectedWeek}>
-            <SelectTrigger className="w-full h-10 md:h-11 text-sm md:text-base">
-              <SelectValue placeholder="Select week" />
-            </SelectTrigger>
-            <SelectContent>
-              {weeklySummaries.map((summary, index) => (
-                <SelectItem key={index} value={index.toString()}>
-                  {formatWeekRange(summary.weekStart, summary.weekEnd)}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
+          <div className="flex items-center gap-2">
+            <Calendar className="w-4 h-4 text-muted-foreground flex-shrink-0" />
+            <Select value={selectedWeek} onValueChange={setSelectedWeek}>
+              <SelectTrigger className="w-full h-9 sm:h-10 md:h-11 text-xs sm:text-sm md:text-base">
+                <SelectValue placeholder="Select week" />
+              </SelectTrigger>
+              <SelectContent>
+                {weeklySummaries.map((summary, index) => (
+                  <SelectItem key={index} value={index.toString()}>
+                    {isCurrentWeek(summary.weekStart) ? "Current Week - " : ""}
+                    {formatWeekRange(summary.weekStart, summary.weekEnd)}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
           {currentSummary && (
             <div className="grid grid-cols-2 gap-2">
               <Button
                 onClick={downloadAsImage}
                 variant="outline"
-                className="h-10 md:h-11 text-xs md:text-sm"
+                className="h-9 sm:h-10 md:h-11 text-xs sm:text-sm md:text-base"
                 size="sm"
               >
-                <Download className="w-3.5 h-3.5 md:w-4 md:h-4 mr-1.5 md:mr-2" />
+                <Download className="w-3 h-3 sm:w-3.5 sm:h-3.5 md:w-4 md:h-4 mr-1 sm:mr-1.5 md:mr-2" />
                 <span className="truncate">Image</span>
               </Button>
               <Button
                 onClick={downloadAsPDF}
                 variant="outline"
-                className="h-10 md:h-11 text-xs md:text-sm"
+                className="h-9 sm:h-10 md:h-11 text-xs sm:text-sm md:text-base"
                 size="sm"
               >
-                <Download className="w-3.5 h-3.5 md:w-4 md:h-4 mr-1.5 md:mr-2" />
+                <Download className="w-3 h-3 sm:w-3.5 sm:h-3.5 md:w-4 md:h-4 mr-1 sm:mr-1.5 md:mr-2" />
                 <span className="truncate">PDF</span>
               </Button>
             </div>
@@ -327,12 +350,12 @@ const WeeklyReport = () => {
           ))}
         </div>
       ) : weeklySummaries.length === 0 ? (
-        <div className="text-center py-12">
-          <div className="w-16 h-16 rounded-full bg-muted mx-auto mb-4 flex items-center justify-center">
-            <FileText className="w-8 h-8 text-muted-foreground" />
+        <div className="text-center py-8 sm:py-12">
+          <div className="w-12 h-12 sm:w-16 sm:h-16 rounded-full bg-muted mx-auto mb-4 flex items-center justify-center">
+            <FileText className="w-6 h-6 sm:w-8 sm:h-8 text-muted-foreground" />
           </div>
-          <p className="text-muted-foreground">No weekly data available</p>
-          <p className="text-sm text-muted-foreground/70">
+          <p className="text-sm sm:text-base text-muted-foreground">No weekly data available</p>
+          <p className="text-xs sm:text-sm text-muted-foreground/70">
             Add labour records to see weekly reports
           </p>
         </div>
@@ -764,42 +787,42 @@ const WeeklyReport = () => {
 
           <div id="weekly-report-content" className="space-y-3 md:space-y-6">
             {/* Summary Cards */}
-            <div className="grid grid-cols-2 lg:grid-cols-4 gap-2 md:gap-4">
+            <div className="grid grid-cols-2 lg:grid-cols-4 gap-2 sm:gap-3 md:gap-4">
               <Card className="border-accent/20">
-                <CardHeader className="pb-2 pt-3 px-3 md:pt-4 md:px-4">
-                  <CardDescription className="text-[10px] md:text-xs">Labours</CardDescription>
-                  <CardTitle className="text-lg md:text-2xl flex items-center gap-1 md:gap-2">
-                    <Users className="w-3.5 h-3.5 md:w-5 md:h-5 text-accent" />
+                <CardHeader className="pb-2 pt-2.5 px-2.5 sm:pt-3 sm:px-3 md:pt-4 md:px-4">
+                  <CardDescription className="text-[9px] sm:text-[10px] md:text-xs">Labours</CardDescription>
+                  <CardTitle className="text-base sm:text-lg md:text-2xl flex items-center gap-1 md:gap-2">
+                    <Users className="w-3 h-3 sm:w-3.5 sm:h-3.5 md:w-5 md:h-5 text-accent" />
                     {currentSummary.labours.length}
                   </CardTitle>
                 </CardHeader>
               </Card>
 
               <Card className="border-green-500/20">
-                <CardHeader className="pb-2 pt-3 px-3 md:pt-4 md:px-4">
-                  <CardDescription className="text-[10px] md:text-xs">Salary</CardDescription>
-                  <CardTitle className="text-base md:text-2xl flex items-center gap-1 md:gap-2">
-                    <TrendingUp className="w-3.5 h-3.5 md:w-5 md:h-5 text-green-500" />
+                <CardHeader className="pb-2 pt-2.5 px-2.5 sm:pt-3 sm:px-3 md:pt-4 md:px-4">
+                  <CardDescription className="text-[9px] sm:text-[10px] md:text-xs">Salary</CardDescription>
+                  <CardTitle className="text-sm sm:text-base md:text-2xl flex items-center gap-1 md:gap-2">
+                    <TrendingUp className="w-3 h-3 sm:w-3.5 sm:h-3.5 md:w-5 md:h-5 text-green-500" />
                     <span className="truncate">₹{currentSummary.totalSalary.toFixed(0)}</span>
                   </CardTitle>
                 </CardHeader>
               </Card>
 
               <Card className="border-red-500/20">
-                <CardHeader className="pb-2 pt-3 px-3 md:pt-4 md:px-4">
-                  <CardDescription className="text-[10px] md:text-xs">Advance</CardDescription>
-                  <CardTitle className="text-base md:text-2xl flex items-center gap-1 md:gap-2">
-                    <Wallet className="w-3.5 h-3.5 md:w-5 md:h-5 text-red-500" />
+                <CardHeader className="pb-2 pt-2.5 px-2.5 sm:pt-3 sm:px-3 md:pt-4 md:px-4">
+                  <CardDescription className="text-[9px] sm:text-[10px] md:text-xs">Advance</CardDescription>
+                  <CardTitle className="text-sm sm:text-base md:text-2xl flex items-center gap-1 md:gap-2">
+                    <Wallet className="w-3 h-3 sm:w-3.5 sm:h-3.5 md:w-5 md:h-5 text-red-500" />
                     <span className="truncate">₹{currentSummary.totalAdvance.toFixed(0)}</span>
                   </CardTitle>
                 </CardHeader>
               </Card>
 
               <Card className="border-accent/30 bg-accent/5 col-span-2 lg:col-span-1">
-                <CardHeader className="pb-2 pt-3 px-3 md:pt-4 md:px-4">
-                  <CardDescription className="text-[10px] md:text-xs font-semibold">Final Payout</CardDescription>
-                  <CardTitle className="text-lg md:text-2xl flex items-center gap-1 md:gap-2 text-accent">
-                    <Wallet className="w-3.5 h-3.5 md:w-5 md:h-5" />
+                <CardHeader className="pb-2 pt-2.5 px-2.5 sm:pt-3 sm:px-3 md:pt-4 md:px-4">
+                  <CardDescription className="text-[9px] sm:text-[10px] md:text-xs font-semibold">Final Payout</CardDescription>
+                  <CardTitle className="text-base sm:text-lg md:text-2xl flex items-center gap-1 md:gap-2 text-accent">
+                    <Wallet className="w-3 h-3 sm:w-3.5 sm:h-3.5 md:w-5 md:h-5" />
                     <span className="truncate">₹{currentSummary.totalPayout.toFixed(2)}</span>
                   </CardTitle>
                 </CardHeader>
@@ -812,28 +835,28 @@ const WeeklyReport = () => {
                 <table className="w-full">
                   <thead className="bg-muted/50">
                     <tr>
-                      <th className="text-left p-2 md:p-4 text-[10px] md:text-sm font-semibold text-foreground">
+                      <th className="text-left p-1.5 sm:p-2 md:p-4 text-[9px] sm:text-[10px] md:text-sm font-semibold text-foreground">
                         Name
                       </th>
-                      <th className="text-center p-2 md:p-4 text-[10px] md:text-sm font-semibold text-foreground hidden sm:table-cell">
+                      <th className="text-center p-1.5 sm:p-2 md:p-4 text-[9px] sm:text-[10px] md:text-sm font-semibold text-foreground hidden sm:table-cell">
                         Works
                       </th>
-                      <th className="text-right p-2 md:p-4 text-[10px] md:text-sm font-semibold text-foreground">
+                      <th className="text-right p-1.5 sm:p-2 md:p-4 text-[9px] sm:text-[10px] md:text-sm font-semibold text-foreground">
                         Salary
                       </th>
-                      <th className="text-right p-2 md:p-4 text-[10px] md:text-sm font-semibold text-foreground hidden lg:table-cell">
+                      <th className="text-right p-1.5 sm:p-2 md:p-4 text-[9px] sm:text-[10px] md:text-sm font-semibold text-foreground hidden lg:table-cell">
                         Advance
                       </th>
-                      <th className="text-right p-2 md:p-4 text-[10px] md:text-sm font-semibold text-foreground hidden lg:table-cell">
+                      <th className="text-right p-1.5 sm:p-2 md:p-4 text-[9px] sm:text-[10px] md:text-sm font-semibold text-foreground hidden lg:table-cell">
                         ESI/BF
                       </th>
-                      <th className="text-right p-2 md:p-4 text-[10px] md:text-sm font-semibold text-foreground hidden xl:table-cell">
+                      <th className="text-right p-1.5 sm:p-2 md:p-4 text-[9px] sm:text-[10px] md:text-sm font-semibold text-foreground hidden xl:table-cell">
                         Lst Wk Bal
                       </th>
-                      <th className="text-right p-2 md:p-4 text-[10px] md:text-sm font-semibold text-foreground hidden xl:table-cell">
+                      <th className="text-right p-1.5 sm:p-2 md:p-4 text-[9px] sm:text-[10px] md:text-sm font-semibold text-foreground hidden xl:table-cell">
                         Extra
                       </th>
-                      <th className="text-right p-2 md:p-4 text-[10px] md:text-sm font-semibold text-foreground">
+                      <th className="text-right p-1.5 sm:p-2 md:p-4 text-[9px] sm:text-[10px] md:text-sm font-semibold text-foreground">
                         Final
                       </th>
                     </tr>
@@ -844,12 +867,12 @@ const WeeklyReport = () => {
                         key={index}
                         className="border-t border-border hover:bg-muted/30 transition-colors"
                       >
-                        <td className="p-2 md:p-4">
+                        <td className="p-1.5 sm:p-2 md:p-4">
                           <div>
-                            <p className="font-medium text-xs md:text-base text-foreground line-clamp-1">
+                            <p className="font-medium text-[10px] sm:text-xs md:text-base text-foreground line-clamp-1">
                               {labour.name}
                             </p>
-                            <div className="flex gap-2 text-[10px] text-muted-foreground sm:hidden flex-wrap">
+                            <div className="flex gap-1.5 text-[9px] text-muted-foreground sm:hidden flex-wrap">
                               <span>{labour.worksCount}w</span>
                               {labour.advance > 0 && <span className="text-red-500">-A:₹{labour.advance.toFixed(0)}</span>}
                               {labour.esiBfAmount > 0 && <span className="text-red-500">-E:₹{labour.esiBfAmount.toFixed(0)}</span>}
@@ -858,25 +881,25 @@ const WeeklyReport = () => {
                             </div>
                           </div>
                         </td>
-                        <td className="p-2 md:p-4 text-center text-xs md:text-base text-muted-foreground hidden sm:table-cell">
+                        <td className="p-1.5 sm:p-2 md:p-4 text-center text-[10px] sm:text-xs md:text-base text-muted-foreground hidden sm:table-cell">
                           {labour.worksCount}
                         </td>
-                        <td className="p-2 md:p-4 text-right font-semibold text-xs md:text-base text-green-600">
+                        <td className="p-1.5 sm:p-2 md:p-4 text-right font-semibold text-[10px] sm:text-xs md:text-base text-green-600">
                           ₹{labour.totalSalary.toFixed(0)}
                         </td>
-                        <td className="p-2 md:p-4 text-right font-semibold text-xs md:text-base text-red-500 hidden lg:table-cell">
+                        <td className="p-1.5 sm:p-2 md:p-4 text-right font-semibold text-[10px] sm:text-xs md:text-base text-red-500 hidden lg:table-cell">
                           {labour.advance > 0 ? `- ₹${labour.advance.toFixed(0)}` : '-'}
                         </td>
-                        <td className="p-2 md:p-4 text-right font-semibold text-xs md:text-base text-red-500 hidden lg:table-cell">
+                        <td className="p-1.5 sm:p-2 md:p-4 text-right font-semibold text-[10px] sm:text-xs md:text-base text-red-500 hidden lg:table-cell">
                           {labour.esiBfAmount > 0 ? `- ₹${labour.esiBfAmount.toFixed(0)}` : '-'}
                         </td>
-                        <td className={`p-2 md:p-4 text-right font-semibold text-xs md:text-base hidden xl:table-cell ${labour.lastWeekBalance >= 0 ? 'text-green-600' : 'text-red-500'}`}>
+                        <td className={`p-1.5 sm:p-2 md:p-4 text-right font-semibold text-[10px] sm:text-xs md:text-base hidden xl:table-cell ${labour.lastWeekBalance >= 0 ? 'text-green-600' : 'text-red-500'}`}>
                           {labour.lastWeekBalance !== 0 ? `${labour.lastWeekBalance >= 0 ? '+' : ''} ₹${labour.lastWeekBalance.toFixed(0)}` : '-'}
                         </td>
-                        <td className={`p-2 md:p-4 text-right font-semibold text-xs md:text-base hidden xl:table-cell ${labour.extraAmount >= 0 ? 'text-green-600' : 'text-red-500'}`}>
+                        <td className={`p-1.5 sm:p-2 md:p-4 text-right font-semibold text-[10px] sm:text-xs md:text-base hidden xl:table-cell ${labour.extraAmount >= 0 ? 'text-green-600' : 'text-red-500'}`}>
                           {labour.extraAmount !== 0 ? `${labour.extraAmount >= 0 ? '+' : ''} ₹${labour.extraAmount.toFixed(0)}` : '-'}
                         </td>
-                        <td className="p-2 md:p-4 text-right font-bold text-xs md:text-base text-accent">
+                        <td className="p-1.5 sm:p-2 md:p-4 text-right font-bold text-[10px] sm:text-xs md:text-base text-accent">
                           ₹{labour.finalAmount.toFixed(0)}
                         </td>
                       </tr>
@@ -915,23 +938,23 @@ const WeeklyReport = () => {
             </div>
 
             {/* Summary Box */}
-            <div className="bg-gradient-to-r from-accent/10 to-accent/5 border border-accent/20 rounded-xl p-3 md:p-6">
-              <div className="grid grid-cols-3 gap-2 md:gap-6">
+            <div className="bg-gradient-to-r from-accent/10 to-accent/5 border border-accent/20 rounded-xl p-2 sm:p-3 md:p-6">
+              <div className="grid grid-cols-3 gap-2 sm:gap-3 md:gap-6">
                 <div className="text-center">
-                  <p className="text-[10px] md:text-sm text-muted-foreground mb-0.5 md:mb-1">Period</p>
-                  <p className="font-semibold text-[10px] md:text-base text-foreground leading-tight">
+                  <p className="text-[9px] sm:text-[10px] md:text-sm text-muted-foreground mb-0.5 md:mb-1">Period</p>
+                  <p className="font-semibold text-[9px] sm:text-[10px] md:text-base text-foreground leading-tight">
                     {formatWeekRange(currentSummary.weekStart, currentSummary.weekEnd)}
                   </p>
                 </div>
                 <div className="text-center">
-                  <p className="text-[10px] md:text-sm text-muted-foreground mb-0.5 md:mb-1">Works</p>
-                  <p className="font-semibold text-xs md:text-base text-foreground">
+                  <p className="text-[9px] sm:text-[10px] md:text-sm text-muted-foreground mb-0.5 md:mb-1">Works</p>
+                  <p className="font-semibold text-[10px] sm:text-xs md:text-base text-foreground">
                     {currentSummary.labours.reduce((sum, l) => sum + l.worksCount, 0)}
                   </p>
                 </div>
                 <div className="text-center">
-                  <p className="text-[10px] md:text-sm text-muted-foreground mb-0.5 md:mb-1">Average</p>
-                  <p className="font-semibold text-xs md:text-base text-accent">
+                  <p className="text-[9px] sm:text-[10px] md:text-sm text-muted-foreground mb-0.5 md:mb-1">Average</p>
+                  <p className="font-semibold text-[10px] sm:text-xs md:text-base text-accent">
                     ₹{(currentSummary.totalPayout / currentSummary.labours.length).toFixed(0)}
                   </p>
                 </div>

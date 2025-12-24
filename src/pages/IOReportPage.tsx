@@ -1,21 +1,13 @@
 import { useEffect, useState, useRef } from "react";
+import React from "react";
 import { FileText, Download, RefreshCw, Search, Image as ImageIcon } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import Navigation from "@/components/Navigation";
 import html2canvas from "html2canvas";
 import jsPDF from "jspdf";
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from "@/components/ui/table";
 
 interface IOData {
   ioNumber: string;
@@ -33,6 +25,7 @@ const IOReportPage = () => {
   const [isLoading, setIsLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState("");
   const reportRef = useRef<HTMLDivElement>(null);
+  const downloadRef = useRef<HTMLDivElement>(null);
 
   const fetchIOReport = async () => {
     setIsLoading(true);
@@ -44,11 +37,9 @@ const IOReportPage = () => {
 
       if (error) throw error;
 
-      // Parse and group data by IO number
       const ioMap = new Map<string, IOData>();
 
       (data || []).forEach((labour) => {
-        // Parse labour name: "Name | IO | WorkType | Advance | ESI | LastWeek | Extra"
         const parts = labour.name.split(" | ");
         if (parts.length < 3) return;
 
@@ -76,7 +67,6 @@ const IOReportPage = () => {
         });
       });
 
-      // Convert map to array and sort by IO number
       const sortedIOData = Array.from(ioMap.values()).sort((a, b) => {
         const numA = parseInt(a.ioNumber) || 0;
         const numB = parseInt(b.ioNumber) || 0;
@@ -97,7 +87,6 @@ const IOReportPage = () => {
     fetchIOReport();
   }, []);
 
-  // Search filter
   useEffect(() => {
     if (!searchQuery.trim()) {
       setFilteredData(ioData);
@@ -110,15 +99,16 @@ const IOReportPage = () => {
   }, [searchQuery, ioData]);
 
   const handleDownloadImage = async () => {
-    if (!reportRef.current) return;
+    if (!downloadRef.current) return;
 
     try {
       toast.info("Generating image...");
       
-      const canvas = await html2canvas(reportRef.current, {
+      const canvas = await html2canvas(downloadRef.current, {
         scale: 2,
         backgroundColor: "#ffffff",
         logging: false,
+        useCORS: true,
       });
 
       canvas.toBlob((blob) => {
@@ -141,18 +131,19 @@ const IOReportPage = () => {
   };
 
   const handleDownloadPDF = async () => {
-    if (!reportRef.current) return;
+    if (!downloadRef.current) return;
 
     try {
       toast.info("Generating PDF...");
 
-      const canvas = await html2canvas(reportRef.current, {
+      const canvas = await html2canvas(downloadRef.current, {
         scale: 2,
         backgroundColor: "#ffffff",
         logging: false,
+        useCORS: true,
       });
 
-      const imgWidth = 210; // A4 width in mm
+      const imgWidth = 210;
       const imgHeight = (canvas.height * imgWidth) / canvas.width;
       
       const pdf = new jsPDF({
@@ -231,7 +222,6 @@ const IOReportPage = () => {
               </div>
             </div>
 
-            {/* Search Bar */}
             <div className="mt-4 relative">
               <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-muted-foreground" />
               <Input
@@ -243,7 +233,6 @@ const IOReportPage = () => {
               />
             </div>
 
-            {/* Summary Stats */}
             {!isLoading && filteredData.length > 0 && (
               <div className="mt-4 grid grid-cols-3 gap-3">
                 <div className="bg-primary/10 rounded-lg p-3 text-center">
@@ -262,13 +251,249 @@ const IOReportPage = () => {
             )}
           </div>
 
-          {/* Report Content */}
-          <div ref={reportRef} className="card-elevated p-4 md:p-6 bg-white">
-            {/* Report Header for Download */}
-            <div className="mb-6 text-center border-b-2 border-primary pb-4">
-              <h2 className="text-2xl md:text-3xl font-bold text-primary">AR TEXTILES</h2>
-              <p className="text-sm text-muted-foreground mt-1">IO Production Report</p>
-              <p className="text-xs text-muted-foreground mt-1">
+          {/* Hidden Download Template */}
+          <div 
+            ref={downloadRef}
+            style={{
+              position: "absolute",
+              left: "0",
+              top: "-99999px",
+              backgroundColor: "#ffffff",
+              fontFamily: "Arial, sans-serif",
+              padding: "40px",
+              width: "1000px",
+            }}
+          >
+            <div style={{
+              textAlign: "center",
+              marginBottom: "30px",
+              borderBottom: "3px solid #f59e0b",
+              paddingBottom: "20px",
+            }}>
+              <h1 style={{
+                fontSize: "32px",
+                fontWeight: "800",
+                color: "#1a1a1a",
+                marginBottom: "8px",
+                letterSpacing: "-0.5px",
+              }}>
+                AR TEXTILES
+              </h1>
+              <h2 style={{
+                fontSize: "20px",
+                fontWeight: "600",
+                color: "#f59e0b",
+                marginBottom: "12px",
+              }}>
+                IO Production Report
+              </h2>
+              <p style={{
+                fontSize: "14px",
+                color: "#999999",
+              }}>
+                Generated on {new Date().toLocaleDateString("en-IN", {
+                  year: "numeric",
+                  month: "long",
+                  day: "numeric",
+                })}
+              </p>
+            </div>
+
+            <table style={{
+              width: "100%",
+              borderCollapse: "collapse",
+              border: "2px solid #e5e5e5",
+              marginBottom: "30px",
+              tableLayout: "fixed",
+            }}>
+              <colgroup>
+                <col style={{ width: "15%" }} />
+                <col style={{ width: "30%" }} />
+                <col style={{ width: "25%" }} />
+                <col style={{ width: "15%" }} />
+                <col style={{ width: "15%" }} />
+              </colgroup>
+              <thead>
+                <tr style={{ backgroundColor: "#16a34a" }}>
+                  <th style={{
+                    padding: "14px",
+                    textAlign: "left",
+                    fontSize: "15px",
+                    fontWeight: "600",
+                    color: "#ffffff",
+                    border: "1px solid #16a34a",
+                  }}>IO Number</th>
+                  <th style={{
+                    padding: "14px",
+                    textAlign: "left",
+                    fontSize: "15px",
+                    fontWeight: "600",
+                    color: "#ffffff",
+                    border: "1px solid #16a34a",
+                  }}>Labour Name</th>
+                  <th style={{
+                    padding: "14px",
+                    textAlign: "left",
+                    fontSize: "15px",
+                    fontWeight: "600",
+                    color: "#ffffff",
+                    border: "1px solid #16a34a",
+                  }}>Work Type</th>
+                  <th style={{
+                    padding: "14px",
+                    textAlign: "right",
+                    fontSize: "15px",
+                    fontWeight: "600",
+                    color: "#ffffff",
+                    border: "1px solid #16a34a",
+                  }}>Quantity</th>
+                  <th style={{
+                    padding: "14px",
+                    textAlign: "right",
+                    fontSize: "15px",
+                    fontWeight: "600",
+                    color: "#ffffff",
+                    border: "1px solid #16a34a",
+                  }}>IO Total</th>
+                </tr>
+              </thead>
+              <tbody>
+                {filteredData.map((io, ioIndex) => (
+                  <React.Fragment key={io.ioNumber}>
+                    {io.labours.map((labour, idx) => (
+                      <tr key={`${io.ioNumber}-${idx}`} style={{
+                        backgroundColor: idx % 2 === 0 ? "#ffffff" : "#f9fafb",
+                      }}>
+                        <td style={{
+                          padding: "14px 10px",
+                          fontSize: idx === 0 ? "18px" : "16px",
+                          fontWeight: idx === 0 ? "700" : "500",
+                          color: "#f59e0b",
+                          border: "1px solid #d1d5db",
+                          backgroundColor: "#fffbeb",
+                          textAlign: "center",
+                          borderTop: idx === 0 ? "3px solid #f59e0b" : "1px solid #e5e7eb",
+                        }}>
+                          {io.ioNumber}
+                        </td>
+                        <td style={{
+                          padding: "14px",
+                          fontSize: "15px",
+                          color: "#1a1a1a",
+                          border: "1px solid #d1d5db",
+                          fontWeight: "500",
+                          borderTop: idx === 0 ? "3px solid #f59e0b" : "1px solid #d1d5db",
+                        }}>{labour.name}</td>
+                        <td style={{
+                          padding: "14px",
+                          fontSize: "14px",
+                          color: "#666666",
+                          border: "1px solid #d1d5db",
+                          borderTop: idx === 0 ? "3px solid #f59e0b" : "1px solid #d1d5db",
+                        }}>{labour.workType}</td>
+                        <td style={{
+                          padding: "14px",
+                          fontSize: "15px",
+                          fontWeight: "600",
+                          color: "#16a34a",
+                          textAlign: "right",
+                          border: "1px solid #d1d5db",
+                          borderTop: idx === 0 ? "3px solid #f59e0b" : "1px solid #d1d5db",
+                        }}>{labour.quantity}</td>
+                        <td style={{
+                          padding: "14px 10px",
+                          fontSize: idx === 0 ? "22px" : "18px",
+                          fontWeight: idx === 0 ? "700" : "600",
+                          color: "#16a34a",
+                          textAlign: "center",
+                          border: "1px solid #d1d5db",
+                          backgroundColor: "#f0fdf4",
+                          borderTop: idx === 0 ? "3px solid #f59e0b" : "1px solid #e5e7eb",
+                        }}>
+                          {io.totalQuantity}
+                        </td>
+                      </tr>
+                    ))}
+                    {ioIndex < filteredData.length - 1 && (
+                      <tr>
+                        <td colSpan={5} style={{
+                          height: "12px",
+                          backgroundColor: "#e5e7eb",
+                          border: "none",
+                        }}></td>
+                      </tr>
+                    )}
+                  </React.Fragment>
+                ))}
+              </tbody>
+            </table>
+
+            <div style={{
+              marginTop: "40px",
+              padding: "25px",
+              backgroundColor: "#f0fdf4",
+              border: "3px solid #f59e0b",
+              borderRadius: "12px",
+            }}>
+              <div style={{
+                display: "grid",
+                gridTemplateColumns: "repeat(3, 1fr)",
+                gap: "20px",
+                textAlign: "center",
+              }}>
+                <div>
+                  <p style={{
+                    fontSize: "14px",
+                    color: "#666",
+                    marginBottom: "8px",
+                    fontWeight: "600",
+                  }}>Total IOs</p>
+                  <p style={{
+                    fontSize: "32px",
+                    fontWeight: "bold",
+                    color: "#f59e0b",
+                  }}>{filteredData.length}</p>
+                </div>
+                <div>
+                  <p style={{
+                    fontSize: "14px",
+                    color: "#666",
+                    marginBottom: "8px",
+                    fontWeight: "600",
+                  }}>Total Quantity</p>
+                  <p style={{
+                    fontSize: "32px",
+                    fontWeight: "bold",
+                    color: "#22c55e",
+                  }}>{totalQuantityAll}</p>
+                </div>
+                <div>
+                  <p style={{
+                    fontSize: "14px",
+                    color: "#666",
+                    marginBottom: "8px",
+                    fontWeight: "600",
+                  }}>Total Labours</p>
+                  <p style={{
+                    fontSize: "32px",
+                    fontWeight: "bold",
+                    color: "#16a34a",
+                  }}>{totalLaboursAll}</p>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {/* Display View */}
+          <div className="card-elevated p-4 md:p-6">
+            <div className="text-center mb-6 md:mb-8 pb-4 md:pb-6 border-b-2 border-orange-500">
+              <h1 className="text-2xl md:text-3xl font-extrabold text-gray-900 mb-2">
+                AR TEXTILES
+              </h1>
+              <h2 className="text-base md:text-xl font-semibold text-orange-500 mb-3">
+                IO Production Report
+              </h2>
+              <p className="text-xs md:text-sm text-gray-500">
                 Generated on {new Date().toLocaleDateString("en-IN", {
                   year: "numeric",
                   month: "long",
@@ -290,110 +515,303 @@ const IOReportPage = () => {
               </div>
             ) : (
               <>
-                {/* Mobile View */}
-                <div className="block md:hidden space-y-4">
-                  {filteredData.map((io) => (
-                    <Card key={io.ioNumber} className="border-2 border-primary/20">
-                      <CardHeader className="pb-3 bg-primary/5">
-                        <CardTitle className="text-base flex items-center justify-between">
-                          <span className="text-primary">IO: {io.ioNumber}</span>
-                          <span className="text-primary font-bold text-lg">
-                            {io.totalQuantity} pcs
-                          </span>
-                        </CardTitle>
-                        <CardDescription className="text-xs">
-                          {io.labours.length} labour(s) worked on this IO
-                        </CardDescription>
-                      </CardHeader>
-                      <CardContent className="space-y-2 pt-3">
-                        {io.labours.map((labour, idx) => (
-                          <div
-                            key={idx}
-                            className="flex items-center justify-between p-3 bg-muted/50 rounded-lg border border-border"
-                          >
-                            <div className="flex-1 min-w-0">
-                              <p className="font-medium text-sm truncate">
-                                {labour.name}
-                              </p>
-                              <p className="text-xs text-muted-foreground truncate">
-                                {labour.workType}
-                              </p>
-                            </div>
-                            <div className="text-base font-bold text-primary ml-2">
-                              {labour.quantity}
-                            </div>
-                          </div>
-                        ))}
-                      </CardContent>
-                    </Card>
-                  ))}
-                </div>
-
-                {/* Desktop View */}
-                <div className="hidden md:block overflow-x-auto rounded-lg border-2 border-primary/20">
-                  <Table>
-                    <TableHeader>
-                      <TableRow className="bg-primary/10 hover:bg-primary/10">
-                        <TableHead className="font-bold text-primary">IO Number</TableHead>
-                        <TableHead className="font-bold text-primary">Labour Name</TableHead>
-                        <TableHead className="font-bold text-primary">Work Type</TableHead>
-                        <TableHead className="font-bold text-primary text-right">Quantity</TableHead>
-                        <TableHead className="font-bold text-primary text-right">IO Total</TableHead>
-                      </TableRow>
-                    </TableHeader>
-                    <TableBody>
+                {/* Desktop Table View */}
+                <div className="hidden md:block" style={{ marginBottom: "30px" }}>
+                  <table style={{
+                    width: "100%",
+                    borderCollapse: "collapse",
+                    border: "2px solid #e5e5e5",
+                  }}>
+                    <thead>
+                      <tr style={{ backgroundColor: "#16a34a" }}>
+                        <th style={{
+                          padding: "14px",
+                          textAlign: "left",
+                          fontSize: "15px",
+                          fontWeight: "600",
+                          color: "#ffffff",
+                          border: "1px solid #16a34a",
+                        }}>IO Number</th>
+                        <th style={{
+                          padding: "14px",
+                          textAlign: "left",
+                          fontSize: "15px",
+                          fontWeight: "600",
+                          color: "#ffffff",
+                          border: "1px solid #16a34a",
+                        }}>Labour Name</th>
+                        <th style={{
+                          padding: "14px",
+                          textAlign: "left",
+                          fontSize: "15px",
+                          fontWeight: "600",
+                          color: "#ffffff",
+                          border: "1px solid #16a34a",
+                        }}>Work Type</th>
+                        <th style={{
+                          padding: "14px",
+                          textAlign: "right",
+                          fontSize: "15px",
+                          fontWeight: "600",
+                          color: "#ffffff",
+                          border: "1px solid #16a34a",
+                        }}>Quantity</th>
+                        <th style={{
+                          padding: "14px",
+                          textAlign: "right",
+                          fontSize: "15px",
+                          fontWeight: "600",
+                          color: "#ffffff",
+                          border: "1px solid #16a34a",
+                        }}>IO Total</th>
+                      </tr>
+                    </thead>
+                    <tbody>
                       {filteredData.map((io) => (
                         <>
                           {io.labours.map((labour, idx) => (
-                            <TableRow key={`${io.ioNumber}-${idx}`} className="hover:bg-muted/50">
+                            <tr key={`${io.ioNumber}-${idx}`} style={{
+                              backgroundColor: idx % 2 === 0 ? "#ffffff" : "#f9fafb",
+                            }}>
                               {idx === 0 ? (
-                                <TableCell
+                                <td
                                   rowSpan={io.labours.length}
-                                  className="font-bold text-lg text-primary border-r-2 border-primary/20 bg-primary/5"
+                                  style={{
+                                    padding: "14px",
+                                    fontSize: "18px",
+                                    fontWeight: "700",
+                                    color: "#f59e0b",
+                                    border: "1px solid #d1d5db",
+                                    backgroundColor: "#fffbeb",
+                                    verticalAlign: "middle",
+                                  }}
                                 >
                                   {io.ioNumber}
-                                </TableCell>
+                                </td>
                               ) : null}
-                              <TableCell className="font-medium">{labour.name}</TableCell>
-                              <TableCell className="text-muted-foreground">
-                                {labour.workType}
-                              </TableCell>
-                              <TableCell className="text-right font-semibold text-base">
-                                {labour.quantity}
-                              </TableCell>
+                              <td style={{
+                                padding: "14px",
+                                fontSize: "15px",
+                                color: "#1a1a1a",
+                                border: "1px solid #d1d5db",
+                              }}>{labour.name}</td>
+                              <td style={{
+                                padding: "14px",
+                                fontSize: "15px",
+                                color: "#666666",
+                                border: "1px solid #d1d5db",
+                              }}>{labour.workType}</td>
+                              <td style={{
+                                padding: "14px",
+                                fontSize: "15px",
+                                fontWeight: "600",
+                                color: "#16a34a",
+                                textAlign: "right",
+                                border: "1px solid #d1d5db",
+                              }}>{labour.quantity}</td>
                               {idx === 0 ? (
-                                <TableCell
+                                <td
                                   rowSpan={io.labours.length}
-                                  className="text-right font-bold text-xl text-primary border-l-2 border-primary/20 bg-primary/5"
+                                  style={{
+                                    padding: "14px",
+                                    fontSize: "24px",
+                                    fontWeight: "700",
+                                    color: "#16a34a",
+                                    textAlign: "right",
+                                    border: "1px solid #d1d5db",
+                                    backgroundColor: "#f0fdf4",
+                                    verticalAlign: "middle",
+                                  }}
                                 >
                                   {io.totalQuantity}
-                                </TableCell>
+                                </td>
                               ) : null}
-                            </TableRow>
+                            </tr>
                           ))}
-                          <TableRow>
-                            <TableCell colSpan={5} className="h-2 bg-primary/5"></TableCell>
-                          </TableRow>
+                          <tr>
+                            <td colSpan={5} style={{
+                              height: "8px",
+                              backgroundColor: "#f3f4f6",
+                              border: "none",
+                            }}></td>
+                          </tr>
                         </>
                       ))}
-                    </TableBody>
-                  </Table>
+                    </tbody>
+                  </table>
                 </div>
 
-                {/* Footer Summary */}
-                <div className="mt-6 pt-4 border-t-2 border-primary">
-                  <div className="grid grid-cols-3 gap-4 text-center">
+                {/* Mobile Card View */}
+                <div className="block md:hidden" style={{ marginBottom: "30px" }}>
+                  {filteredData.map((io, ioIdx) => (
+                    <div 
+                      key={io.ioNumber}
+                      style={{
+                        marginBottom: ioIdx < filteredData.length - 1 ? "20px" : "0",
+                        border: "2px solid #e5e5e5",
+                        borderRadius: "8px",
+                        overflow: "hidden",
+                      }}
+                    >
+                      {/* IO Header */}
+                      <div style={{
+                        padding: "16px",
+                        backgroundColor: "#fffbeb",
+                        borderBottom: "2px solid #f59e0b",
+                      }}>
+                        <div style={{
+                          display: "flex",
+                          justifyContent: "space-between",
+                          alignItems: "center",
+                          marginBottom: "8px",
+                        }}>
+                          <div>
+                            <p style={{
+                              fontSize: "12px",
+                              color: "#666",
+                              marginBottom: "4px",
+                            }}>IO Number</p>
+                            <p style={{
+                              fontSize: "24px",
+                              fontWeight: "700",
+                              color: "#f59e0b",
+                            }}>{io.ioNumber}</p>
+                          </div>
+                          <div style={{ textAlign: "right" }}>
+                            <p style={{
+                              fontSize: "12px",
+                              color: "#666",
+                              marginBottom: "4px",
+                            }}>IO Total</p>
+                            <p style={{
+                              fontSize: "24px",
+                              fontWeight: "700",
+                              color: "#22c55e",
+                            }}>{io.totalQuantity}</p>
+                          </div>
+                        </div>
+                      </div>
+
+                      {/* Labour Details */}
+                      <div style={{ padding: "12px" }}>
+                        <table style={{
+                          width: "100%",
+                          borderCollapse: "collapse",
+                        }}>
+                          <thead>
+                            <tr style={{ backgroundColor: "#16a34a" }}>
+                              <th style={{
+                                padding: "10px 8px",
+                                textAlign: "left",
+                                fontSize: "12px",
+                                fontWeight: "600",
+                                color: "#ffffff",
+                                border: "1px solid #16a34a",
+                              }}>Labour</th>
+                              <th style={{
+                                padding: "10px 8px",
+                                textAlign: "left",
+                                fontSize: "12px",
+                                fontWeight: "600",
+                                color: "#ffffff",
+                                border: "1px solid #16a34a",
+                              }}>Work</th>
+                              <th style={{
+                                padding: "10px 8px",
+                                textAlign: "right",
+                                fontSize: "12px",
+                                fontWeight: "600",
+                                color: "#ffffff",
+                                border: "1px solid #16a34a",
+                              }}>Qty</th>
+                            </tr>
+                          </thead>
+                          <tbody>
+                            {io.labours.map((labour, idx) => (
+                              <tr key={idx} style={{
+                                backgroundColor: idx % 2 === 0 ? "#ffffff" : "#f9fafb",
+                              }}>
+                                <td style={{
+                                  padding: "10px 8px",
+                                  fontSize: "13px",
+                                  color: "#1a1a1a",
+                                  border: "1px solid #d1d5db",
+                                  fontWeight: "600",
+                                }}>{labour.name}</td>
+                                <td style={{
+                                  padding: "10px 8px",
+                                  fontSize: "12px",
+                                  color: "#666",
+                                  border: "1px solid #d1d5db",
+                                }}>{labour.workType}</td>
+                                <td style={{
+                                  padding: "10px 8px",
+                                  fontSize: "14px",
+                                  fontWeight: "700",
+                                  color: "#16a34a",
+                                  textAlign: "right",
+                                  border: "1px solid #d1d5db",
+                                }}>{labour.quantity}</td>
+                              </tr>
+                            ))}
+                          </tbody>
+                        </table>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+
+                <div style={{
+                  marginTop: "40px",
+                  padding: "25px",
+                  backgroundColor: "#f0fdf4",
+                  border: "3px solid #f59e0b",
+                  borderRadius: "12px",
+                }}>
+                  <div style={{
+                    display: "grid",
+                    gridTemplateColumns: "repeat(3, 1fr)",
+                    gap: "20px",
+                    textAlign: "center",
+                  }}>
                     <div>
-                      <p className="text-sm text-muted-foreground mb-1">Total IOs</p>
-                      <p className="text-xl font-bold text-primary">{filteredData.length}</p>
+                      <p style={{
+                        fontSize: "14px",
+                        color: "#666",
+                        marginBottom: "8px",
+                        fontWeight: "600",
+                      }}>Total IOs</p>
+                      <p style={{
+                        fontSize: "32px",
+                        fontWeight: "bold",
+                        color: "#f59e0b",
+                      }}>{filteredData.length}</p>
                     </div>
                     <div>
-                      <p className="text-sm text-muted-foreground mb-1">Total Quantity</p>
-                      <p className="text-xl font-bold text-primary">{totalQuantityAll}</p>
+                      <p style={{
+                        fontSize: "14px",
+                        color: "#666",
+                        marginBottom: "8px",
+                        fontWeight: "600",
+                      }}>Total Quantity</p>
+                      <p style={{
+                        fontSize: "32px",
+                        fontWeight: "bold",
+                        color: "#22c55e",
+                      }}>{totalQuantityAll}</p>
                     </div>
                     <div>
-                      <p className="text-sm text-muted-foreground mb-1">Total Labours</p>
-                      <p className="text-xl font-bold text-primary">{totalLaboursAll}</p>
+                      <p style={{
+                        fontSize: "14px",
+                        color: "#666",
+                        marginBottom: "8px",
+                        fontWeight: "600",
+                      }}>Total Labours</p>
+                      <p style={{
+                        fontSize: "32px",
+                        fontWeight: "bold",
+                        color: "#16a34a",
+                      }}>{totalLaboursAll}</p>
                     </div>
                   </div>
                 </div>

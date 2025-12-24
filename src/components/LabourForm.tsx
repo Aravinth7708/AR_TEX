@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Plus, Calculator, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -18,16 +18,46 @@ interface WorkEntry {
   rate: string;
 }
 
+const FORM_STORAGE_KEY = "labour_form_draft";
+
 const LabourForm = ({ onLabourAdded }: LabourFormProps) => {
-  const [name, setName] = useState("");
-  const [advance, setAdvance] = useState("");
-  const [esiBfAmount, setEsiBfAmount] = useState("");
-  const [lastWeekBalance, setLastWeekBalance] = useState("");
-  const [extraAmount, setExtraAmount] = useState("");
-  const [workEntries, setWorkEntries] = useState<WorkEntry[]>([
-    { id: crypto.randomUUID(), ioNo: "", workType: "", quantity: "", rate: "" },
-  ]);
+  // Load saved form data from localStorage on mount
+  const loadSavedFormData = () => {
+    try {
+      const saved = localStorage.getItem(FORM_STORAGE_KEY);
+      if (saved) {
+        return JSON.parse(saved);
+      }
+    } catch (error) {
+      console.error("Error loading saved form data:", error);
+    }
+    return null;
+  };
+
+  const savedData = loadSavedFormData();
+
+  const [name, setName] = useState(savedData?.name || "");
+  const [advance, setAdvance] = useState(savedData?.advance || "");
+  const [esiBfAmount, setEsiBfAmount] = useState(savedData?.esiBfAmount || "");
+  const [lastWeekBalance, setLastWeekBalance] = useState(savedData?.lastWeekBalance || "");
+  const [extraAmount, setExtraAmount] = useState(savedData?.extraAmount || "");
+  const [workEntries, setWorkEntries] = useState<WorkEntry[]>(
+    savedData?.workEntries || [{ id: crypto.randomUUID(), ioNo: "", workType: "", quantity: "", rate: "" }]
+  );
   const [isSubmitting, setIsSubmitting] = useState(false);
+
+  // Auto-save form data to localStorage whenever it changes
+  useEffect(() => {
+    const formData = {
+      name,
+      advance,
+      esiBfAmount,
+      lastWeekBalance,
+      extraAmount,
+      workEntries,
+    };
+    localStorage.setItem(FORM_STORAGE_KEY, JSON.stringify(formData));
+  }, [name, advance, esiBfAmount, lastWeekBalance, extraAmount, workEntries]);
 
   const totalSalary = workEntries.reduce((total, entry) => {
     return total + (parseFloat(entry.quantity) || 0) * (parseFloat(entry.rate) || 0);
@@ -91,6 +121,10 @@ const LabourForm = ({ onLabourAdded }: LabourFormProps) => {
       toast.success(
         `${name} added with ${workEntries.length} work(s) - Final: ₹${finalSalary.toFixed(2)}`
       );
+      
+      // Clear localStorage after successful submission
+      localStorage.removeItem(FORM_STORAGE_KEY);
+      
       setName("");
       setAdvance("");
       setEsiBfAmount("");

@@ -6,6 +6,7 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 import Index from "./pages/Index";
 import WeeklyReportPage from "./pages/WeeklyReportPage";
+import IOReportPage from "./pages/IOReportPage";
 import NotFound from "./pages/NotFound";
 import Login from "./components/Login";
 
@@ -109,7 +110,21 @@ const App = () => (
               </ProtectedRoute>
             }
           />
-          {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
+          <Route
+            path="/io-report"
+            element={
+              <ProtectedRoute>
+                <IOReportPage />
+              </ProtectedRoute>
+            }
+          />          <Route
+            path="/io-report"
+            element={
+              <ProtectedRoute>
+                <IOReportPage />
+              </ProtectedRoute>
+            }
+          />          {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
           <Route path="*" element={<NotFound />} />
         </Routes>
       </BrowserRouter>

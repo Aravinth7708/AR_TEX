@@ -34,8 +34,12 @@ const Header = () => {
     <header className="gradient-primary py-6 px-4 sm:px-8">
       <div className="container mx-auto flex items-center justify-between">
         <div className="flex items-center gap-3">
-          <div className="w-12 h-12 rounded-xl bg-accent/20 flex items-center justify-center">
-            <Scissors className="w-6 h-6 text-amber" />
+          <div className="w-12 h-12 rounded-full overflow-hidden bg-white p-1">
+            <img 
+              src="/artex_logo.jpg" 
+              alt="AR Textiles Logo" 
+              className="w-full h-full object-cover rounded-full"
+            />
           </div>
           <div>
             <h1 className="font-display text-2xl sm:text-3xl font-bold text-primary-foreground tracking-tight">

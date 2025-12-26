@@ -1,6 +1,15 @@
 import { useEffect, useState } from "react";
-import { Calendar, Download, TrendingUp, Users, Wallet, FileText } from "lucide-react";
+import { Calendar, Download, TrendingUp, Users, Wallet, FileText, CreditCard } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import {
+  AlertDialog,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import {
   Card,
   CardContent,
@@ -24,6 +33,7 @@ interface Labour {
   id: string;
   name: string;
   total_salary: number;
+  phone_number?: string;
   advance: number;
   esi_bf_amount?: number;
   last_week_balance?: number;
@@ -36,6 +46,7 @@ interface WeeklySummary {
   weekEnd: Date;
   labours: {
     name: string;
+    phoneNumber?: string;
     totalSalary: number;
     advance: number;
     esiBfAmount: number;
@@ -56,6 +67,8 @@ const WeeklyReport = () => {
   const [weeklySummaries, setWeeklySummaries] = useState<WeeklySummary[]>([]);
   const [selectedWeek, setSelectedWeek] = useState<string>("current");
   const [isLoading, setIsLoading] = useState(true);
+  const [paymentDialogOpen, setPaymentDialogOpen] = useState(false);
+  const [selectedLabourForPayment, setSelectedLabourForPayment] = useState<{ name: string; phoneNumber?: string; amount: number } | null>(null);
   const downloadRef = useState<HTMLDivElement | null>(null)[0];
 
   // Get week range from Monday to Sunday
@@ -124,6 +137,7 @@ const WeeklyReport = () => {
         // Group by labour name
         const labourMap = new Map<string, {
           totalSalary: number;
+          phoneNumber?: string;
           advance: number;
           esiBfAmount: number;
           lastWeekBalance: number;
@@ -132,11 +146,14 @@ const WeeklyReport = () => {
         }>();
 
         labours.forEach((labour) => {
-          const baseName = labour.name.split(' | ')[0];
+          const parts = labour.name.split(' | ');
+          const baseName = parts[0];
+          const phoneFromName = parts[7] && parts[7] !== 'N/A' ? parts[7] : (labour.phone_number || '');
           
           if (!labourMap.has(baseName)) {
             labourMap.set(baseName, {
               totalSalary: 0,
+              phoneNumber: phoneFromName,
               advance: 0,
               esiBfAmount: 0,
               lastWeekBalance: 0,
@@ -152,10 +169,15 @@ const WeeklyReport = () => {
           labourData.lastWeekBalance += labour.last_week_balance || 0;
           labourData.extraAmount += labour.extra_amount || 0;
           labourData.worksCount += 1;
+          // Keep first phone number found
+          if (!labourData.phoneNumber && phoneFromName) {
+            labourData.phoneNumber = phoneFromName;
+          }
         });
 
         const laboursList = Array.from(labourMap.entries()).map(([name, data]) => ({
           name,
+          phoneNumber: data.phoneNumber,
           totalSalary: data.totalSalary,
           advance: data.advance,
           esiBfAmount: data.esiBfAmount,
@@ -219,6 +241,48 @@ const WeeklyReport = () => {
     const now = new Date();
     const currentWeekRange = getWeekRange(now);
     return weekStart.getTime() === currentWeekRange.start.getTime();
+  };
+
+  const openPaymentDialog = (labour: { name: string; phoneNumber?: string; finalAmount: number }) => {
+    setSelectedLabourForPayment({
+      name: labour.name,
+      phoneNumber: labour.phoneNumber,
+      amount: labour.finalAmount
+    });
+    setPaymentDialogOpen(true);
+  };
+
+  const handlePayNow = (paymentApp: 'upi' | 'gpay' | 'phonepe') => {
+    if (!selectedLabourForPayment || !selectedLabourForPayment.phoneNumber) {
+      toast.error("Phone number not available for this labour");
+      return;
+    }
+
+    const phoneNumber = selectedLabourForPayment.phoneNumber;
+    
+    // Copy phone number to clipboard
+    navigator.clipboard.writeText(phoneNumber).then(() => {
+      toast.success(`Phone number ${phoneNumber} copied! Opening payment app...`);
+    }).catch(() => {
+      toast.success(`Opening payment app...`);
+    });
+    
+    // Open payment app
+    let appUrl = '';
+    if (paymentApp === 'gpay') {
+      appUrl = 'tez://upi';
+    } else if (paymentApp === 'phonepe') {
+      appUrl = 'phonepe://';
+    } else {
+      appUrl = 'upi://pay';
+    }
+    
+    // Small delay to ensure copy happens first
+    setTimeout(() => {
+      window.open(appUrl, '_blank');
+    }, 100);
+    
+    setPaymentDialogOpen(false);
   };
 
   const downloadAsImage = async () => {
@@ -872,12 +936,26 @@ const WeeklyReport = () => {
                             <p className="font-medium text-[10px] sm:text-xs md:text-base text-foreground line-clamp-1">
                               {labour.name}
                             </p>
-                            <div className="flex gap-1.5 text-[9px] text-muted-foreground sm:hidden flex-wrap">
+                            <div className="flex gap-1.5 items-center text-[9px] text-muted-foreground sm:hidden flex-wrap">
                               <span>{labour.worksCount}w</span>
                               {labour.advance > 0 && <span className="text-red-500">-A:₹{labour.advance.toFixed(0)}</span>}
                               {labour.esiBfAmount > 0 && <span className="text-red-500">-E:₹{labour.esiBfAmount.toFixed(0)}</span>}
                               {labour.lastWeekBalance !== 0 && <span className={labour.lastWeekBalance >= 0 ? 'text-green-600' : 'text-red-500'}>L:{labour.lastWeekBalance >= 0 ? '+' : ''}₹{labour.lastWeekBalance.toFixed(0)}</span>}
                               {labour.extraAmount !== 0 && <span className={labour.extraAmount >= 0 ? 'text-green-600' : 'text-red-500'}>X:{labour.extraAmount >= 0 ? '+' : ''}₹{labour.extraAmount.toFixed(0)}</span>}
+                              {labour.phoneNumber && (
+                                <Button
+                                  size="sm"
+                                  variant="outline"
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    openPaymentDialog(labour);
+                                  }}
+                                  className="h-4 px-1.5 text-[8px] bg-green-50 hover:bg-green-100 text-green-700 border-green-200"
+                                >
+                                  <CreditCard className="w-2.5 h-2.5 mr-0.5" />
+                                  Pay
+                                </Button>
+                              )}
                             </div>
                           </div>
                         </td>
@@ -899,8 +977,26 @@ const WeeklyReport = () => {
                         <td className={`p-1.5 sm:p-2 md:p-4 text-right font-semibold text-[10px] sm:text-xs md:text-base hidden xl:table-cell ${labour.extraAmount >= 0 ? 'text-green-600' : 'text-red-500'}`}>
                           {labour.extraAmount !== 0 ? `${labour.extraAmount >= 0 ? '+' : ''} ₹${labour.extraAmount.toFixed(0)}` : '-'}
                         </td>
-                        <td className="p-1.5 sm:p-2 md:p-4 text-right font-bold text-[10px] sm:text-xs md:text-base text-accent">
-                          ₹{labour.finalAmount.toFixed(0)}
+                        <td className="p-1.5 sm:p-2 md:p-4 text-right">
+                          <div className="flex items-center justify-end gap-2">
+                            <span className="font-bold text-[10px] sm:text-xs md:text-base text-accent">
+                              ₹{labour.finalAmount.toFixed(0)}
+                            </span>
+                            {labour.phoneNumber && (
+                              <Button
+                                size="sm"
+                                variant="outline"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  openPaymentDialog(labour);
+                                }}
+                                className="hidden sm:flex h-7 px-2 text-xs bg-green-50 hover:bg-green-100 text-green-700 border-green-200"
+                              >
+                                <CreditCard className="w-3 h-3 mr-1" />
+                                Pay
+                              </Button>
+                            )}
+                          </div>
                         </td>
                       </tr>
                     ))}
@@ -963,6 +1059,91 @@ const WeeklyReport = () => {
           </div>
         </>
       ) : null}
+
+      <AlertDialog open={paymentDialogOpen} onOpenChange={setPaymentDialogOpen}>
+        <AlertDialogContent className="max-w-md">
+          <AlertDialogHeader>
+            <AlertDialogTitle className="flex items-center gap-2">
+              <CreditCard className="w-5 h-5 text-green-600" />
+              Pay Labour Salary
+            </AlertDialogTitle>
+            <AlertDialogDescription asChild>
+              <div className="space-y-4 pt-2">
+                <div>
+                  <p className="font-medium text-foreground mb-1">{selectedLabourForPayment?.name}</p>
+                  
+                  <div className="bg-green-50 border-2 border-green-300 rounded-lg p-4 my-3">
+                    <p className="text-sm font-medium text-green-900 mb-2">Payment Phone Number:</p>
+                    <div className="flex items-center justify-between gap-2 bg-white rounded-md p-3 border border-green-200">
+                      <p className="text-2xl font-bold text-green-700 select-all">
+                        {selectedLabourForPayment?.phoneNumber}
+                      </p>
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        onClick={() => {
+                          navigator.clipboard.writeText(selectedLabourForPayment?.phoneNumber || '');
+                          toast.success('Phone number copied!');
+                        }}
+                        className="shrink-0 text-xs"
+                      >
+                        Copy
+                      </Button>
+                    </div>
+                  </div>
+
+                  <div className="bg-amber-50 border border-amber-200 rounded-lg p-3">
+                    <p className="text-sm font-medium text-amber-900 mb-1">Salary Amount:</p>
+                    <p className="text-2xl font-bold text-amber-700">
+                      ₹{selectedLabourForPayment?.amount.toFixed(2)}
+                    </p>
+                  </div>
+
+                  <div className="bg-blue-50 border border-blue-200 rounded-lg p-3 mt-3">
+                    <p className="text-xs text-blue-800 leading-relaxed">
+                      <strong>📋 Steps:</strong><br/>
+                      1. Click on your payment app below<br/>
+                      2. Search/paste the phone number<br/>
+                      3. Enter the amount manually<br/>
+                      4. Complete the payment
+                    </p>
+                  </div>
+                </div>
+
+                <div className="space-y-2">
+                  <p className="text-sm font-medium">Choose Payment App:</p>
+                  <div className="grid grid-cols-3 gap-2">
+                    <Button
+                      onClick={() => handlePayNow('gpay')}
+                      className="h-auto py-3 flex flex-col items-center gap-1 bg-white hover:bg-gray-50 text-gray-900 border-2 border-gray-200"
+                    >
+                      <span className="text-2xl">💳</span>
+                      <span className="text-xs font-semibold">GPay</span>
+                    </Button>
+                    <Button
+                      onClick={() => handlePayNow('phonepe')}
+                      className="h-auto py-3 flex flex-col items-center gap-1 bg-purple-50 hover:bg-purple-100 text-purple-900 border-2 border-purple-200"
+                    >
+                      <span className="text-2xl">📱</span>
+                      <span className="text-xs font-semibold">PhonePe</span>
+                    </Button>
+                    <Button
+                      onClick={() => handlePayNow('upi')}
+                      className="h-auto py-3 flex flex-col items-center gap-1 bg-blue-50 hover:bg-blue-100 text-blue-900 border-2 border-blue-200"
+                    >
+                      <span className="text-2xl">💰</span>
+                      <span className="text-xs font-semibold">Other UPI</span>
+                    </Button>
+                  </div>
+                </div>
+              </div>
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 };

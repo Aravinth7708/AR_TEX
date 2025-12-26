@@ -329,26 +329,30 @@ const LabourList = ({ refreshTrigger }: LabourListProps) => {
       return;
     }
 
-    const labourName = selectedLabourForPayment.name;
     const phoneNumber = selectedLabourForPayment.phone_number;
     
-    let paymentUrl = '';
+    // Copy phone number to clipboard
+    navigator.clipboard.writeText(phoneNumber).then(() => {
+      toast.success(`Phone number ${phoneNumber} copied! Opening payment app...`);
+    }).catch(() => {
+      toast.success(`Opening payment app...`);
+    });
     
+    // Open payment app
+    let appUrl = '';
     if (paymentApp === 'gpay') {
-      // GPay: Open with phone number for contact search
-      paymentUrl = `tez://upi/pay?pn=${encodeURIComponent(phoneNumber)}&tn=Salary%20for%20${encodeURIComponent(labourName)}`;
+      appUrl = 'tez://upi';
     } else if (paymentApp === 'phonepe') {
-      // PhonePe: Open with phone number
-      paymentUrl = `phonepe://pay?pn=${encodeURIComponent(phoneNumber)}&tn=Salary%20for%20${encodeURIComponent(labourName)}`;
+      appUrl = 'phonepe://';
     } else {
-      // Generic UPI: Just open the app
-      paymentUrl = `upi://pay?pn=${encodeURIComponent(phoneNumber)}&tn=Salary%20for%20${encodeURIComponent(labourName)}`;
+      appUrl = 'upi://pay';
     }
-
-    // Try to open the payment app
-    window.location.href = paymentUrl;
     
-    toast.success(`Opening payment app...`);
+    // Small delay to ensure copy happens first
+    setTimeout(() => {
+      window.open(appUrl, '_blank');
+    }, 100);
+    
     setPaymentDialogOpen(false);
   };
 
@@ -1077,16 +1081,41 @@ const LabourList = ({ refreshTrigger }: LabourListProps) => {
               <div className="space-y-4 pt-2">
                 <div>
                   <p className="font-medium text-foreground mb-1">{selectedLabourForPayment?.name}</p>
-                  <p className="text-sm text-muted-foreground mb-2">
-                    📱 {selectedLabourForPayment?.phone_number}
-                  </p>
+                  
+                  <div className="bg-green-50 border-2 border-green-300 rounded-lg p-4 my-3">
+                    <p className="text-sm font-medium text-green-900 mb-2">Payment Phone Number:</p>
+                    <div className="flex items-center justify-between gap-2 bg-white rounded-md p-3 border border-green-200">
+                      <p className="text-2xl font-bold text-green-700 select-all">
+                        {selectedLabourForPayment?.phone_number}
+                      </p>
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        onClick={() => {
+                          navigator.clipboard.writeText(selectedLabourForPayment?.phone_number || '');
+                          toast.success('Phone number copied!');
+                        }}
+                        className="shrink-0 text-xs"
+                      >
+                        Copy
+                      </Button>
+                    </div>
+                  </div>
+
                   <div className="bg-amber-50 border border-amber-200 rounded-lg p-3">
                     <p className="text-sm font-medium text-amber-900 mb-1">Salary Amount:</p>
                     <p className="text-2xl font-bold text-amber-700">
                       ₹{paymentAmount}
                     </p>
-                    <p className="text-xs text-amber-600 mt-2">
-                      💡 App will search by phone number. You can then select the contact and enter the amount manually.
+                  </div>
+
+                  <div className="bg-blue-50 border border-blue-200 rounded-lg p-3 mt-3">
+                    <p className="text-xs text-blue-800 leading-relaxed">
+                      <strong>📋 Steps:</strong><br/>
+                      1. Click on your payment app below<br/>
+                      2. Search/paste the phone number<br/>
+                      3. Enter the amount manually<br/>
+                      4. Complete the payment
                     </p>
                   </div>
                 </div>

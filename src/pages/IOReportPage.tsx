@@ -8,6 +8,12 @@ import { supabase } from "@/integrations/supabase/client";
 import Navigation from "@/components/Navigation";
 import html2canvas from "html2canvas";
 import jsPDF from "jspdf";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 
 interface IOData {
   ioNumber: string;
@@ -25,8 +31,7 @@ const IOReportPage = () => {
   const [isLoading, setIsLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState("");
   const reportRef = useRef<HTMLDivElement>(null);
-  const downloadRef = useRef<HTMLDivElement>(null);
-
+  const downloadRef = useRef<HTMLDivElement>(null);  const individualDownloadRefs = useRef<Map<string, HTMLDivElement>>(new Map());
   const fetchIOReport = async () => {
     setIsLoading(true);
     try {
@@ -158,6 +163,65 @@ const IOReportPage = () => {
       toast.success("PDF downloaded successfully");
     } catch (error) {
       console.error("Error downloading PDF:", error);
+      toast.error("Failed to download PDF");
+    }
+  };
+
+  const downloadIOAsImage = async (ioNumber: string) => {
+    const element = individualDownloadRefs.current.get(ioNumber);
+    if (!element) return;
+
+    try {
+      toast.info("Generating image...");
+
+      const canvas = await html2canvas(element, {
+        scale: 2,
+        backgroundColor: "#ffffff",
+        logging: false,
+        useCORS: true,
+      });
+
+      const link = document.createElement("a");
+      link.download = `IO_${ioNumber}_${new Date().toISOString().split("T")[0]}.png`;
+      link.href = canvas.toDataURL("image/png");
+      link.click();
+
+      toast.success("Image downloaded successfully");
+    } catch (error) {
+      console.error("Error downloading IO as image:", error);
+      toast.error("Failed to download image");
+    }
+  };
+
+  const downloadIOAsPDF = async (ioNumber: string) => {
+    const element = individualDownloadRefs.current.get(ioNumber);
+    if (!element) return;
+
+    try {
+      toast.info("Generating PDF...");
+
+      const canvas = await html2canvas(element, {
+        scale: 2,
+        backgroundColor: "#ffffff",
+        logging: false,
+        useCORS: true,
+      });
+
+      const imgWidth = 210;
+      const imgHeight = (canvas.height * imgWidth) / canvas.width;
+      
+      const pdf = new jsPDF({
+        orientation: imgHeight > imgWidth ? "portrait" : "landscape",
+        unit: "mm",
+      });
+
+      const imgData = canvas.toDataURL("image/png");
+      pdf.addImage(imgData, "PNG", 0, 0, imgWidth, imgHeight);
+      pdf.save(`IO_${ioNumber}_${new Date().toISOString().split("T")[0]}.pdf`);
+
+      toast.success("PDF downloaded successfully");
+    } catch (error) {
+      console.error("Error generating IO PDF:", error);
       toast.error("Failed to download PDF");
     }
   };
@@ -484,6 +548,204 @@ const IOReportPage = () => {
             </div>
           </div>
 
+          {/* Hidden Individual IO Download Templates */}
+          {filteredData.map((io) => (
+            <div 
+              key={`download-${io.ioNumber}`}
+              ref={(el) => {
+                if (el) {
+                  individualDownloadRefs.current.set(io.ioNumber, el);
+                }
+              }}
+              style={{
+                position: "absolute",
+                left: "0",
+                top: "-99999px",
+                backgroundColor: "#ffffff",
+                fontFamily: "Arial, sans-serif",
+                padding: "40px",
+                width: "800px",
+              }}
+            >
+              <div style={{
+                textAlign: "center",
+                marginBottom: "30px",
+                borderBottom: "3px solid #f59e0b",
+                paddingBottom: "20px",
+              }}>
+                <h1 style={{
+                  fontSize: "32px",
+                  fontWeight: "800",
+                  color: "#1a1a1a",
+                  marginBottom: "8px",
+                  letterSpacing: "-0.5px",
+                }}>
+                  AR TEXTILES
+                </h1>
+                <h2 style={{
+                  fontSize: "20px",
+                  fontWeight: "600",
+                  color: "#f59e0b",
+                  marginBottom: "12px",
+                }}>
+                  IO Production Report - {io.ioNumber}
+                </h2>
+                <p style={{
+                  fontSize: "14px",
+                  color: "#999999",
+                }}>
+                  Generated on {new Date().toLocaleDateString("en-IN", {
+                    year: "numeric",
+                    month: "long",
+                    day: "numeric",
+                  })}
+                </p>
+              </div>
+
+              <div style={{
+                marginBottom: "20px",
+                padding: "20px",
+                backgroundColor: "#fffbeb",
+                border: "2px solid #f59e0b",
+                borderRadius: "8px",
+                display: "flex",
+                justifyContent: "space-between",
+                alignItems: "center",
+              }}>
+                <div>
+                  <p style={{
+                    fontSize: "14px",
+                    color: "#666",
+                    marginBottom: "4px",
+                  }}>IO Number</p>
+                  <p style={{
+                    fontSize: "28px",
+                    fontWeight: "700",
+                    color: "#f59e0b",
+                  }}>{io.ioNumber}</p>
+                </div>
+                <div style={{ textAlign: "right" }}>
+                  <p style={{
+                    fontSize: "14px",
+                    color: "#666",
+                    marginBottom: "4px",
+                  }}>Total Quantity</p>
+                  <p style={{
+                    fontSize: "28px",
+                    fontWeight: "700",
+                    color: "#22c55e",
+                  }}>{io.totalQuantity}</p>
+                </div>
+              </div>
+
+              <table style={{
+                width: "100%",
+                borderCollapse: "collapse",
+                border: "2px solid #e5e5e5",
+                marginBottom: "30px",
+              }}>
+                <thead>
+                  <tr style={{ backgroundColor: "#16a34a" }}>
+                    <th style={{
+                      padding: "14px",
+                      textAlign: "left",
+                      fontSize: "15px",
+                      fontWeight: "600",
+                      color: "#ffffff",
+                      border: "1px solid #16a34a",
+                    }}>Labour Name</th>
+                    <th style={{
+                      padding: "14px",
+                      textAlign: "left",
+                      fontSize: "15px",
+                      fontWeight: "600",
+                      color: "#ffffff",
+                      border: "1px solid #16a34a",
+                    }}>Work Type</th>
+                    <th style={{
+                      padding: "14px",
+                      textAlign: "right",
+                      fontSize: "15px",
+                      fontWeight: "600",
+                      color: "#ffffff",
+                      border: "1px solid #16a34a",
+                    }}>Quantity</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {io.labours.map((labour, idx) => (
+                    <tr key={idx} style={{
+                      backgroundColor: idx % 2 === 0 ? "#ffffff" : "#f9fafb",
+                    }}>
+                      <td style={{
+                        padding: "14px",
+                        fontSize: "15px",
+                        color: "#1a1a1a",
+                        border: "1px solid #d1d5db",
+                        fontWeight: "500",
+                      }}>{labour.name}</td>
+                      <td style={{
+                        padding: "14px",
+                        fontSize: "14px",
+                        color: "#666666",
+                        border: "1px solid #d1d5db",
+                      }}>{labour.workType}</td>
+                      <td style={{
+                        padding: "14px",
+                        fontSize: "15px",
+                        fontWeight: "600",
+                        color: "#16a34a",
+                        textAlign: "right",
+                        border: "1px solid #d1d5db",
+                      }}>{labour.quantity}</td>
+                    </tr>
+                  ))}
+                  <tr>
+                    <td colSpan={2} style={{
+                      padding: "14px",
+                      fontSize: "16px",
+                      fontWeight: "700",
+                      color: "#1a1a1a",
+                      border: "1px solid #d1d5db",
+                      backgroundColor: "#f0fdf4",
+                      textAlign: "right",
+                    }}>TOTAL:</td>
+                    <td style={{
+                      padding: "14px",
+                      fontSize: "18px",
+                      fontWeight: "700",
+                      color: "#16a34a",
+                      textAlign: "right",
+                      border: "1px solid #d1d5db",
+                      backgroundColor: "#f0fdf4",
+                    }}>{io.totalQuantity}</td>
+                  </tr>
+                </tbody>
+              </table>
+
+              <div style={{
+                marginTop: "30px",
+                padding: "20px",
+                backgroundColor: "#f0fdf4",
+                border: "2px solid #22c55e",
+                borderRadius: "8px",
+                textAlign: "center",
+              }}>
+                <p style={{
+                  fontSize: "14px",
+                  color: "#666",
+                  marginBottom: "8px",
+                  fontWeight: "600",
+                }}>Total Labours</p>
+                <p style={{
+                  fontSize: "28px",
+                  fontWeight: "700",
+                  color: "#16a34a",
+                }}>{io.labours.length}</p>
+              </div>
+            </div>
+          ))}
+
           {/* Display View */}
           <div className="card-elevated p-4 md:p-6">
             <div className="text-center mb-6 md:mb-8 pb-4 md:pb-6 border-b-2 border-orange-500">
@@ -689,6 +951,26 @@ const IOReportPage = () => {
                               color: "#22c55e",
                             }}>{io.totalQuantity}</p>
                           </div>
+                        </div>
+                        <div style={{ display: "flex", justifyContent: "flex-end", marginTop: "8px" }}>
+                          <DropdownMenu>
+                            <DropdownMenuTrigger asChild>
+                              <Button variant="outline" size="sm" style={{ fontSize: "12px", padding: "4px 12px" }}>
+                                <Download className="h-4 w-4 mr-1" />
+                                Download
+                              </Button>
+                            </DropdownMenuTrigger>
+                            <DropdownMenuContent>
+                              <DropdownMenuItem onClick={() => downloadIOAsImage(io.ioNumber)}>
+                                <ImageIcon className="h-4 w-4 mr-2" />
+                                As Image
+                              </DropdownMenuItem>
+                              <DropdownMenuItem onClick={() => downloadIOAsPDF(io.ioNumber)}>
+                                <FileText className="h-4 w-4 mr-2" />
+                                As PDF
+                              </DropdownMenuItem>
+                            </DropdownMenuContent>
+                          </DropdownMenu>
                         </div>
                       </div>
 

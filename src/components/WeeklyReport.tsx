@@ -71,13 +71,23 @@ const WeeklyReport = () => {
   const [selectedLabourForPayment, setSelectedLabourForPayment] = useState<{ name: string; phoneNumber?: string; amount: number } | null>(null);
   const downloadRef = useState<HTMLDivElement | null>(null)[0];
 
-  // Get week range from Monday to Sunday
+  // Get week range from Wednesday to Tuesday
   const getWeekRange = (date: Date): { start: Date; end: Date } => {
     const d = new Date(date); // Create copy to avoid mutation
     const day = d.getDay(); // 0=Sunday, 1=Monday, ..., 6=Saturday
-    const diff = d.getDate() - day + (day === 0 ? -6 : 1); // Adjust to Monday
     
-    const weekStart = new Date(d.getFullYear(), d.getMonth(), diff);
+    // Calculate days to subtract to get to previous Wednesday
+    // If today is Wed (3), diff = 0
+    // If today is Thu (4), diff = 1
+    // If today is Tue (2), diff = 6 (go back to previous Wed)
+    let diff;
+    if (day >= 3) {
+      diff = day - 3; // Days since Wednesday
+    } else {
+      diff = day + 4; // Days since last Wednesday (going back through previous week)
+    }
+    
+    const weekStart = new Date(d.getFullYear(), d.getMonth(), d.getDate() - diff);
     weekStart.setHours(0, 0, 0, 0);
     
     const weekEnd = new Date(weekStart);

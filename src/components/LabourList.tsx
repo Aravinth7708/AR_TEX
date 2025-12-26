@@ -81,20 +81,30 @@ const LabourList = ({ refreshTrigger }: LabourListProps) => {
   const [selectedWeek, setSelectedWeek] = useState<string>("current");
   const [availableWeeks, setAvailableWeeks] = useState<{ label: string; value: string; start: Date; end: Date }[]>([]);
 
-  // Helper function to get week start and end dates (Monday to Sunday)
+  // Helper function to get week start and end dates (Wednesday to Tuesday)
   const getWeekRange = (date: Date) => {
     const d = new Date(date); // Create copy to avoid mutation
     const day = d.getDay(); // 0=Sunday, 1=Monday, ..., 6=Saturday
-    const diff = d.getDate() - day + (day === 0 ? -6 : 1); // Adjust to Monday
     
-    const monday = new Date(d.getFullYear(), d.getMonth(), diff);
-    monday.setHours(0, 0, 0, 0);
+    // Calculate days to subtract to get to previous Wednesday
+    // If today is Wed (3), diff = 0
+    // If today is Thu (4), diff = 1
+    // If today is Tue (2), diff = 6 (go back to previous Wed)
+    let diff;
+    if (day >= 3) {
+      diff = day - 3; // Days since Wednesday
+    } else {
+      diff = day + 4; // Days since last Wednesday (going back through previous week)
+    }
     
-    const sunday = new Date(monday);
-    sunday.setDate(monday.getDate() + 6);
-    sunday.setHours(23, 59, 59, 999);
+    const wednesday = new Date(d.getFullYear(), d.getMonth(), d.getDate() - diff);
+    wednesday.setHours(0, 0, 0, 0);
     
-    return { start: monday, end: sunday };
+    const tuesday = new Date(wednesday);
+    tuesday.setDate(wednesday.getDate() + 6);
+    tuesday.setHours(23, 59, 59, 999);
+    
+    return { start: wednesday, end: tuesday };
   };
 
   // Get current week

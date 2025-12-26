@@ -267,20 +267,22 @@ const WeeklyReport = () => {
       toast.success(`Opening payment app...`);
     });
     
-    // Open payment app
+    // Open payment app - use window.location.href for proper app deep linking
     let appUrl = '';
     if (paymentApp === 'gpay') {
       appUrl = 'tez://upi';
     } else if (paymentApp === 'phonepe') {
-      appUrl = 'phonepe://';
+      appUrl = 'phonepe://pay';
     } else {
-      appUrl = 'upi://pay';
+      appUrl = 'paytmmp://upi';
     }
     
-    // Small delay to ensure copy happens first
-    setTimeout(() => {
-      window.open(appUrl, '_blank');
-    }, 100);
+    // Use window.location.href for better mobile app deep linking
+    try {
+      window.location.href = appUrl;
+    } catch (e) {
+      toast.error('Could not open payment app. Please open it manually.');
+    }
     
     setPaymentDialogOpen(false);
   };
@@ -1132,7 +1134,7 @@ const WeeklyReport = () => {
                       className="h-auto py-3 flex flex-col items-center gap-1 bg-blue-50 hover:bg-blue-100 text-blue-900 border-2 border-blue-200"
                     >
                       <span className="text-2xl">💰</span>
-                      <span className="text-xs font-semibold">Other UPI</span>
+                      <span className="text-xs font-semibold">Paytm</span>
                     </Button>
                   </div>
                 </div>

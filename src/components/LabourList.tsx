@@ -1,5 +1,5 @@
 import { useEffect, useState, useRef } from "react";
-import { Users, Trash2, RefreshCw, ChevronDown, ChevronUp, Edit, Download, Calendar, Wallet } from "lucide-react";
+import { Users, Trash2, RefreshCw, ChevronDown, ChevronUp, Edit, Download, Calendar, CreditCard } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -329,35 +329,28 @@ const LabourList = ({ refreshTrigger }: LabourListProps) => {
       return;
     }
 
-    const amount = parseFloat(paymentAmount);
-    if (isNaN(amount) || amount <= 0) {
-      toast.error("Please enter a valid amount");
-      return;
-    }
-
     const labourName = selectedLabourForPayment.name;
     const phoneNumber = selectedLabourForPayment.phone_number;
     const note = `Salary payment for ${labourName}`;
 
-    // UPI payment URL - note: requires UPI ID, but we'll use phone number format
-    // Most apps allow searching by phone number
+    // UPI payment URL without amount - user will enter manually in the app
     const upiId = `${phoneNumber}@paytm`; // Common UPI format, users can change in app
     
     let paymentUrl = '';
     
     if (paymentApp === 'gpay') {
-      paymentUrl = `gpay://upi/pay?pa=${upiId}&pn=${encodeURIComponent(labourName)}&am=${amount}&cu=INR&tn=${encodeURIComponent(note)}`;
+      paymentUrl = `gpay://upi/pay?pa=${upiId}&pn=${encodeURIComponent(labourName)}&cu=INR&tn=${encodeURIComponent(note)}`;
     } else if (paymentApp === 'phonepe') {
-      paymentUrl = `phonepe://pay?pa=${upiId}&pn=${encodeURIComponent(labourName)}&am=${amount}&cu=INR&tn=${encodeURIComponent(note)}`;
+      paymentUrl = `phonepe://pay?pa=${upiId}&pn=${encodeURIComponent(labourName)}&cu=INR&tn=${encodeURIComponent(note)}`;
     } else {
       // Generic UPI intent
-      paymentUrl = `upi://pay?pa=${upiId}&pn=${encodeURIComponent(labourName)}&am=${amount}&cu=INR&tn=${encodeURIComponent(note)}`;
+      paymentUrl = `upi://pay?pa=${upiId}&pn=${encodeURIComponent(labourName)}&cu=INR&tn=${encodeURIComponent(note)}`;
     }
 
     // Try to open the payment app
     window.location.href = paymentUrl;
     
-    toast.success(`Opening payment app for ₹${amount.toFixed(2)}`);
+    toast.success(`Opening payment app for ${labourName}`);
     setPaymentDialogOpen(false);
   };
 
@@ -762,7 +755,7 @@ const LabourList = ({ refreshTrigger }: LabourListProps) => {
                                   }}
                                   className="h-6 px-2 text-xs bg-green-50 hover:bg-green-100 text-green-700 border-green-200"
                                 >
-                                  <Wallet className="w-3 h-3 mr-1" />
+                                  <CreditCard className="w-3 h-3 mr-1" />
                                   Pay Now
                                 </Button>
                               </div>
@@ -1079,35 +1072,25 @@ const LabourList = ({ refreshTrigger }: LabourListProps) => {
         <AlertDialogContent className="max-w-md">
           <AlertDialogHeader>
             <AlertDialogTitle className="flex items-center gap-2">
-              <Wallet className="w-5 h-5 text-green-600" />
+              <CreditCard className="w-5 h-5 text-green-600" />
               Pay Labour Salary
             </AlertDialogTitle>
             <AlertDialogDescription asChild>
               <div className="space-y-4 pt-2">
                 <div>
                   <p className="font-medium text-foreground mb-1">{selectedLabourForPayment?.name}</p>
-                  <p className="text-sm text-muted-foreground">
+                  <p className="text-sm text-muted-foreground mb-2">
                     📱 {selectedLabourForPayment?.phone_number}
                   </p>
-                </div>
-                
-                <div className="space-y-2">
-                  <Label htmlFor="paymentAmount" className="text-sm font-medium">
-                    Amount (₹)
-                  </Label>
-                  <Input
-                    id="paymentAmount"
-                    type="number"
-                    step="0.01"
-                    min="0"
-                    value={paymentAmount}
-                    onChange={(e) => setPaymentAmount(e.target.value)}
-                    className="h-11 text-lg font-semibold"
-                    placeholder="0.00"
-                  />
-                  <p className="text-xs text-muted-foreground">
-                    You can edit the amount before payment
-                  </p>
+                  <div className="bg-amber-50 border border-amber-200 rounded-lg p-3">
+                    <p className="text-sm font-medium text-amber-900 mb-1">Salary Amount:</p>
+                    <p className="text-2xl font-bold text-amber-700">
+                      ₹{paymentAmount}
+                    </p>
+                    <p className="text-xs text-amber-600 mt-1">
+                      Enter the amount manually in the payment app
+                    </p>
+                  </div>
                 </div>
 
                 <div className="space-y-2">

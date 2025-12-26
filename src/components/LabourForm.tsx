@@ -37,6 +37,7 @@ const LabourForm = ({ onLabourAdded }: LabourFormProps) => {
   const savedData = loadSavedFormData();
 
   const [name, setName] = useState(savedData?.name || "");
+  const [phoneNumber, setPhoneNumber] = useState(savedData?.phoneNumber || "");
   const [advance, setAdvance] = useState(savedData?.advance || "");
   const [esiBfAmount, setEsiBfAmount] = useState(savedData?.esiBfAmount || "");
   const [lastWeekBalance, setLastWeekBalance] = useState(savedData?.lastWeekBalance || "");
@@ -50,6 +51,7 @@ const LabourForm = ({ onLabourAdded }: LabourFormProps) => {
   useEffect(() => {
     const formData = {
       name,
+      phoneNumber,
       advance,
       esiBfAmount,
       lastWeekBalance,
@@ -57,7 +59,7 @@ const LabourForm = ({ onLabourAdded }: LabourFormProps) => {
       workEntries,
     };
     localStorage.setItem(FORM_STORAGE_KEY, JSON.stringify(formData));
-  }, [name, advance, esiBfAmount, lastWeekBalance, extraAmount, workEntries]);
+  }, [name, phoneNumber, advance, esiBfAmount, lastWeekBalance, extraAmount, workEntries]);
 
   const totalSalary = workEntries.reduce((total, entry) => {
     return total + (parseFloat(entry.quantity) || 0) * (parseFloat(entry.rate) || 0);
@@ -106,9 +108,9 @@ const LabourForm = ({ onLabourAdded }: LabourFormProps) => {
     setIsSubmitting(true);
 
     try {
-      // Build labour data without new fields (schema cache issue)
+      // Build labour data - encode phone in name field until migration is applied
       const labourData = workEntries.map((entry, index) => ({
-        name: `${name.trim()} | ${entry.ioNo.trim()} | ${entry.workType.trim()} | ${index === 0 ? advanceAmount.toFixed(2) : '0.00'} | ${index === 0 ? esiBfAmountValue.toFixed(2) : '0.00'} | ${index === 0 ? lastWeekBalanceValue.toFixed(2) : '0.00'} | ${index === 0 ? extraAmountValue.toFixed(2) : '0.00'}`,
+        name: `${name.trim()} | ${entry.ioNo.trim()} | ${entry.workType.trim()} | ${index === 0 ? advanceAmount.toFixed(2) : '0.00'} | ${index === 0 ? esiBfAmountValue.toFixed(2) : '0.00'} | ${index === 0 ? lastWeekBalanceValue.toFixed(2) : '0.00'} | ${index === 0 ? extraAmountValue.toFixed(2) : '0.00'} | ${phoneNumber.trim() || 'N/A'}`,
         pieces: parseInt(entry.quantity),
         quantity: 1,
         rate_per_piece: parseFloat(entry.rate),
@@ -126,6 +128,7 @@ const LabourForm = ({ onLabourAdded }: LabourFormProps) => {
       localStorage.removeItem(FORM_STORAGE_KEY);
       
       setName("");
+      setPhoneNumber("");
       setAdvance("");
       setEsiBfAmount("");
       setLastWeekBalance("");
@@ -171,6 +174,26 @@ const LabourForm = ({ onLabourAdded }: LabourFormProps) => {
               className="input-field h-11"
             />
           </div>
+          <div className="space-y-2">
+            <Label htmlFor="phoneNumber" className="text-sm md:text-base font-medium">
+              Phone Number (For Payment)
+            </Label>
+            <Input
+              id="phoneNumber"
+              type="tel"
+              placeholder="Enter 10-digit number"
+              value={phoneNumber}
+              onChange={(e) => {
+                const value = e.target.value.replace(/\D/g, '').slice(0, 10);
+                setPhoneNumber(value);
+              }}
+              maxLength={10}
+              className="input-field h-11"
+            />
+          </div>
+        </div>
+
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 md:gap-4">
           <div className="space-y-2">
             <Label htmlFor="advance" className="text-sm md:text-base font-medium">
               Advance (₹)

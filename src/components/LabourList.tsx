@@ -1,5 +1,5 @@
 import { useEffect, useState, useRef } from "react";
-import { Users, Trash2, RefreshCw, ChevronDown, ChevronUp, Edit, Download, Calendar } from "lucide-react";
+import { Users, Trash2, RefreshCw, ChevronDown, ChevronUp, Edit, Download, Calendar, Wallet } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -38,6 +38,7 @@ interface Labour {
   quantity: number;
   rate_per_piece: number;
   total_salary: number;
+  phone_number?: string;
   advance?: number;
   esi_bf_amount?: number;
   last_week_balance?: number;
@@ -53,6 +54,7 @@ interface WorkDetail {
   quantity: number;
   rate_per_piece: number;
   total_salary: number;
+  phone_number?: string;
   advance?: number;
   esi_bf_amount?: number;
   last_week_balance?: number;
@@ -70,6 +72,9 @@ const LabourList = ({ refreshTrigger }: LabourListProps) => {
   const [isLoading, setIsLoading] = useState(true);
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [labourToDelete, setLabourToDelete] = useState<string | null>(null);
+  const [paymentDialogOpen, setPaymentDialogOpen] = useState(false);
+  const [selectedLabourForPayment, setSelectedLabourForPayment] = useState<Labour | null>(null);
+  const [paymentAmount, setPaymentAmount] = useState<string>("");
   const [editingWork, setEditingWork] = useState<WorkDetail | null>(null);
   const [editValues, setEditValues] = useState({ ioNo: "", workType: "", pieces: "", rate: "", advance: "", esiBf: "", lastWeekBalance: "", extraAmount: "" });
   const downloadRefs = useRef<{ [key: string]: HTMLDivElement | null }>({});
@@ -216,17 +221,25 @@ const LabourList = ({ refreshTrigger }: LabourListProps) => {
     // Group by base labour name (before the pipe)
     const groupedData: { [key: string]: Labour } = {};
     filteredData.forEach((labour) => {
-      const baseName = labour.name.split(' | ')[0];
+      const parts = labour.name.split(' | ');
+      const baseName = parts[0];
+      const phoneFromName = parts[7] && parts[7] !== 'N/A' ? parts[7] : (labour.phone_number || '');
+      
       if (groupedData[baseName]) {
         groupedData[baseName].total_salary += labour.total_salary || 0;
         groupedData[baseName].advance = (groupedData[baseName].advance || 0) + (labour.advance || 0);
         groupedData[baseName].esi_bf_amount = (groupedData[baseName].esi_bf_amount || 0) + (labour.esi_bf_amount || 0);
         groupedData[baseName].last_week_balance = (groupedData[baseName].last_week_balance || 0) + (labour.last_week_balance || 0);
         groupedData[baseName].extra_amount = (groupedData[baseName].extra_amount || 0) + (labour.extra_amount || 0);
+        // Keep the phone number from the first entry
+        if (!groupedData[baseName].phone_number && phoneFromName) {
+          groupedData[baseName].phone_number = phoneFromName;
+        }
       } else {
         groupedData[baseName] = { 
           ...labour, 
           name: baseName, 
+          phone_number: phoneFromName,
           advance: labour.advance || 0,
           esi_bf_amount: labour.esi_bf_amount || 0,
           last_week_balance: labour.last_week_balance || 0,
@@ -265,6 +278,7 @@ const LabourList = ({ refreshTrigger }: LabourListProps) => {
       .filter((labour) => labour.name.startsWith(baseName + ' |'))
       .map((labour) => {
         const parts = labour.name.split(' | ');
+        const phoneFromName = parts[7] && parts[7] !== 'N/A' ? parts[7] : (labour.phone_number || '');
         return {
           id: labour.id,
           ioNo: parts[1] || '',
@@ -273,6 +287,7 @@ const LabourList = ({ refreshTrigger }: LabourListProps) => {
           quantity: labour.quantity,
           rate_per_piece: labour.rate_per_piece,
           total_salary: labour.total_salary,
+          phone_number: phoneFromName,
           advance: labour.advance || 0,
           esi_bf_amount: labour.esi_bf_amount || 0,
           last_week_balance: labour.last_week_balance || 0,
@@ -299,6 +314,51 @@ const LabourList = ({ refreshTrigger }: LabourListProps) => {
   const openDeleteDialog = (baseName: string) => {
     setLabourToDelete(baseName);
     setDeleteDialogOpen(true);
+  };
+
+  const openPaymentDialog = (labour: Labour) => {
+    setSelectedLabourForPayment(labour);
+    const finalAmount = (labour.total_salary || 0) - (labour.advance || 0) - (labour.esi_bf_amount || 0) + (labour.last_week_balance || 0) + (labour.extra_amount || 0);
+    setPaymentAmount(finalAmount.toFixed(2));
+    setPaymentDialogOpen(true);
+  };
+
+  const handlePayNow = (paymentApp: 'upi' | 'gpay' | 'phonepe') => {
+    if (!selectedLabourForPayment || !selectedLabourForPayment.phone_number) {
+      toast.error("Phone number not available for this labour");
+      return;
+    }
+
+    const amount = parseFloat(paymentAmount);
+    if (isNaN(amount) || amount <= 0) {
+      toast.error("Please enter a valid amount");
+      return;
+    }
+
+    const labourName = selectedLabourForPayment.name;
+    const phoneNumber = selectedLabourForPayment.phone_number;
+    const note = `Salary payment for ${labourName}`;
+
+    // UPI payment URL - note: requires UPI ID, but we'll use phone number format
+    // Most apps allow searching by phone number
+    const upiId = `${phoneNumber}@paytm`; // Common UPI format, users can change in app
+    
+    let paymentUrl = '';
+    
+    if (paymentApp === 'gpay') {
+      paymentUrl = `gpay://upi/pay?pa=${upiId}&pn=${encodeURIComponent(labourName)}&am=${amount}&cu=INR&tn=${encodeURIComponent(note)}`;
+    } else if (paymentApp === 'phonepe') {
+      paymentUrl = `phonepe://pay?pa=${upiId}&pn=${encodeURIComponent(labourName)}&am=${amount}&cu=INR&tn=${encodeURIComponent(note)}`;
+    } else {
+      // Generic UPI intent
+      paymentUrl = `upi://pay?pa=${upiId}&pn=${encodeURIComponent(labourName)}&am=${amount}&cu=INR&tn=${encodeURIComponent(note)}`;
+    }
+
+    // Try to open the payment app
+    window.location.href = paymentUrl;
+    
+    toast.success(`Opening payment app for ₹${amount.toFixed(2)}`);
+    setPaymentDialogOpen(false);
   };
 
   const confirmDelete = async () => {
@@ -572,6 +632,11 @@ const LabourList = ({ refreshTrigger }: LabourListProps) => {
                         <p style={{ fontSize: "18px", color: "#666666", marginBottom: "8px" }}>
                           {labour.name}
                         </p>
+                        {labour.phone_number && (
+                          <p style={{ fontSize: "16px", color: "#16a34a", marginBottom: "8px", fontWeight: "600" }}>
+                            📱 Payment Number: {labour.phone_number}
+                          </p>
+                        )}
                         <p style={{ fontSize: "14px", color: "#999999" }}>
                           Date: {new Date().toLocaleDateString("en-IN", { year: "numeric", month: "long", day: "numeric" })}
                         </p>
@@ -679,9 +744,30 @@ const LabourList = ({ refreshTrigger }: LabourListProps) => {
                           )}
                         </div>
                         {!isExpanded && (
-                          <p className="text-sm text-muted-foreground mt-1">
-                            {workDetails.length} work{workDetails.length !== 1 ? 's' : ''}
-                          </p>
+                          <>
+                            <p className="text-sm text-muted-foreground mt-1">
+                              {workDetails.length} work{workDetails.length !== 1 ? 's' : ''}
+                            </p>
+                            {labour.phone_number && (
+                              <div className="flex items-center gap-2 mt-1">
+                                <p className="text-xs text-muted-foreground flex items-center gap-1">
+                                  <span className="font-medium">📱</span> {labour.phone_number}
+                                </p>
+                                <Button
+                                  variant="outline"
+                                  size="sm"
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    openPaymentDialog(labour);
+                                  }}
+                                  className="h-6 px-2 text-xs bg-green-50 hover:bg-green-100 text-green-700 border-green-200"
+                                >
+                                  <Wallet className="w-3 h-3 mr-1" />
+                                  Pay Now
+                                </Button>
+                              </div>
+                            )}
+                          </>
                         )}
                       </div>
                       <div className="flex items-center gap-1 md:gap-3 flex-shrink-0">
@@ -985,6 +1071,76 @@ const LabourList = ({ refreshTrigger }: LabourListProps) => {
             <AlertDialogAction onClick={confirmDelete} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">
               Delete
             </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      <AlertDialog open={paymentDialogOpen} onOpenChange={setPaymentDialogOpen}>
+        <AlertDialogContent className="max-w-md">
+          <AlertDialogHeader>
+            <AlertDialogTitle className="flex items-center gap-2">
+              <Wallet className="w-5 h-5 text-green-600" />
+              Pay Labour Salary
+            </AlertDialogTitle>
+            <AlertDialogDescription asChild>
+              <div className="space-y-4 pt-2">
+                <div>
+                  <p className="font-medium text-foreground mb-1">{selectedLabourForPayment?.name}</p>
+                  <p className="text-sm text-muted-foreground">
+                    📱 {selectedLabourForPayment?.phone_number}
+                  </p>
+                </div>
+                
+                <div className="space-y-2">
+                  <Label htmlFor="paymentAmount" className="text-sm font-medium">
+                    Amount (₹)
+                  </Label>
+                  <Input
+                    id="paymentAmount"
+                    type="number"
+                    step="0.01"
+                    min="0"
+                    value={paymentAmount}
+                    onChange={(e) => setPaymentAmount(e.target.value)}
+                    className="h-11 text-lg font-semibold"
+                    placeholder="0.00"
+                  />
+                  <p className="text-xs text-muted-foreground">
+                    You can edit the amount before payment
+                  </p>
+                </div>
+
+                <div className="space-y-2">
+                  <p className="text-sm font-medium">Choose Payment App:</p>
+                  <div className="grid grid-cols-3 gap-2">
+                    <Button
+                      onClick={() => handlePayNow('gpay')}
+                      className="h-auto py-3 flex flex-col items-center gap-1 bg-white hover:bg-gray-50 text-gray-900 border-2 border-gray-200"
+                    >
+                      <span className="text-2xl">💳</span>
+                      <span className="text-xs font-semibold">GPay</span>
+                    </Button>
+                    <Button
+                      onClick={() => handlePayNow('phonepe')}
+                      className="h-auto py-3 flex flex-col items-center gap-1 bg-purple-50 hover:bg-purple-100 text-purple-900 border-2 border-purple-200"
+                    >
+                      <span className="text-2xl">📱</span>
+                      <span className="text-xs font-semibold">PhonePe</span>
+                    </Button>
+                    <Button
+                      onClick={() => handlePayNow('upi')}
+                      className="h-auto py-3 flex flex-col items-center gap-1 bg-blue-50 hover:bg-blue-100 text-blue-900 border-2 border-blue-200"
+                    >
+                      <span className="text-2xl">💰</span>
+                      <span className="text-xs font-semibold">Other UPI</span>
+                    </Button>
+                  </div>
+                </div>
+              </div>
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>

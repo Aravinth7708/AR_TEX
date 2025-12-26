@@ -331,26 +331,24 @@ const LabourList = ({ refreshTrigger }: LabourListProps) => {
 
     const labourName = selectedLabourForPayment.name;
     const phoneNumber = selectedLabourForPayment.phone_number;
-    const note = `Salary payment for ${labourName}`;
-
-    // UPI payment URL without amount - user will enter manually in the app
-    const upiId = `${phoneNumber}@paytm`; // Common UPI format, users can change in app
     
     let paymentUrl = '';
     
     if (paymentApp === 'gpay') {
-      paymentUrl = `gpay://upi/pay?pa=${upiId}&pn=${encodeURIComponent(labourName)}&cu=INR&tn=${encodeURIComponent(note)}`;
+      // GPay: Open with phone number for contact search
+      paymentUrl = `tez://upi/pay?pn=${encodeURIComponent(phoneNumber)}&tn=Salary%20for%20${encodeURIComponent(labourName)}`;
     } else if (paymentApp === 'phonepe') {
-      paymentUrl = `phonepe://pay?pa=${upiId}&pn=${encodeURIComponent(labourName)}&cu=INR&tn=${encodeURIComponent(note)}`;
+      // PhonePe: Open with phone number
+      paymentUrl = `phonepe://pay?pn=${encodeURIComponent(phoneNumber)}&tn=Salary%20for%20${encodeURIComponent(labourName)}`;
     } else {
-      // Generic UPI intent
-      paymentUrl = `upi://pay?pa=${upiId}&pn=${encodeURIComponent(labourName)}&cu=INR&tn=${encodeURIComponent(note)}`;
+      // Generic UPI: Just open the app
+      paymentUrl = `upi://pay?pn=${encodeURIComponent(phoneNumber)}&tn=Salary%20for%20${encodeURIComponent(labourName)}`;
     }
 
     // Try to open the payment app
     window.location.href = paymentUrl;
     
-    toast.success(`Opening payment app for ${labourName}`);
+    toast.success(`Opening payment app...`);
     setPaymentDialogOpen(false);
   };
 
@@ -1087,8 +1085,8 @@ const LabourList = ({ refreshTrigger }: LabourListProps) => {
                     <p className="text-2xl font-bold text-amber-700">
                       ₹{paymentAmount}
                     </p>
-                    <p className="text-xs text-amber-600 mt-1">
-                      Enter the amount manually in the payment app
+                    <p className="text-xs text-amber-600 mt-2">
+                      💡 App will search by phone number. You can then select the contact and enter the amount manually.
                     </p>
                   </div>
                 </div>

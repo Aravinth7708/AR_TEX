@@ -59,6 +59,40 @@ export type Database = {
         }
         Relationships: []
       }
+      labour_advances: {
+        Row: {
+          id: string
+          labour_name: string
+          advance_amount: number
+          advance_date: string
+          notes: string | null
+          created_at: string
+          updated_at: string
+          paid_amount: number
+          balance: number
+        }
+        Insert: {
+          id?: string
+          labour_name: string
+          advance_amount: number
+          advance_date?: string
+          notes?: string | null
+          created_at?: string
+          updated_at?: string
+          paid_amount?: number
+        }
+        Update: {
+          id?: string
+          labour_name?: string
+          advance_amount?: number
+          advance_date?: string
+          notes?: string | null
+          created_at?: string
+          updated_at?: string
+          paid_amount?: number
+        }
+        Relationships: []
+      }
     }
     Views: {
       [_ in never]: never

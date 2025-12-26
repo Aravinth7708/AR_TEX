@@ -1,5 +1,5 @@
 import { Link, useLocation, useNavigate } from "react-router-dom";
-import { Home, Calendar, FileText, Menu, X, LogOut } from "lucide-react";
+import { Home, Calendar, FileText, DollarSign, Menu, X, LogOut } from "lucide-react";
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
@@ -21,6 +21,7 @@ const Navigation = () => {
     { path: "/", label: "Home", icon: Home },
     { path: "/weekly-report", label: "Weekly Report", icon: Calendar },
     { path: "/io-report", label: "IO Report", icon: FileText },
+    { path: "/labour-advance", label: "Labour Advance", icon: DollarSign },
   ];
 
   const isActive = (path: string) => location.pathname === path;

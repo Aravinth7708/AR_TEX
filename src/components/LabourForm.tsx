@@ -46,6 +46,46 @@ const LabourForm = ({ onLabourAdded }: LabourFormProps) => {
     savedData?.workEntries || [{ id: crypto.randomUUID(), ioNo: "", workType: "", quantity: "", rate: "" }]
   );
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [isFetchingAdvance, setIsFetchingAdvance] = useState(false);
+
+  // Fetch total advance amount when name changes
+  useEffect(() => {
+    const fetchAdvanceAmount = async () => {
+      if (!name.trim()) {
+        return;
+      }
+
+      setIsFetchingAdvance(true);
+      try {
+        const { data, error } = await supabase
+          .from("labour_advances")
+          .select("advance_amount, paid_amount")
+          .ilike("labour_name", name.trim());
+
+        if (error) throw error;
+
+        if (data && data.length > 0) {
+          // Calculate total remaining balance (advance_amount - paid_amount)
+          const totalBalance = data.reduce((sum, record) => {
+            return sum + (record.advance_amount - (record.paid_amount || 0));
+          }, 0);
+          
+          if (totalBalance > 0) {
+            setAdvance(totalBalance.toFixed(2));
+            toast.info(`Found ₹${totalBalance.toFixed(2)} advance balance for ${name}`);
+          }
+        }
+      } catch (error) {
+        console.error("Error fetching advance:", error);
+      } finally {
+        setIsFetchingAdvance(false);
+      }
+    };
+
+    // Debounce the fetch
+    const timeoutId = setTimeout(fetchAdvanceAmount, 500);
+    return () => clearTimeout(timeoutId);
+  }, [name]);
 
   // Auto-save form data to localStorage whenever it changes
   useEffect(() => {
@@ -119,6 +159,40 @@ const LabourForm = ({ onLabourAdded }: LabourFormProps) => {
       const { error } = await supabase.from("labours").insert(labourData);
 
       if (error) throw error;
+
+      // If advance amount was used/paid, update the labour_advances records
+      if (advanceAmount > 0) {
+        // Get all advances for this labour
+        const { data: advanceRecords, error: fetchError } = await supabase
+          .from("labour_advances")
+          .select("*")
+          .ilike("labour_name", name.trim())
+          .order("advance_date", { ascending: true });
+
+        if (fetchError) {
+          console.error("Error fetching advance records:", fetchError);
+        } else if (advanceRecords && advanceRecords.length > 0) {
+          // Update paid_amount for advances (FIFO - First In First Out)
+          let remainingToPay = advanceAmount;
+          
+          for (const record of advanceRecords) {
+            if (remainingToPay <= 0) break;
+            
+            const currentBalance = record.advance_amount - (record.paid_amount || 0);
+            if (currentBalance <= 0) continue;
+            
+            const amountToPay = Math.min(remainingToPay, currentBalance);
+            const newPaidAmount = (record.paid_amount || 0) + amountToPay;
+            
+            await supabase
+              .from("labour_advances")
+              .update({ paid_amount: newPaidAmount })
+              .eq("id", record.id);
+            
+            remainingToPay -= amountToPay;
+          }
+        }
+      }      if (error) throw error;
 
       toast.success(
         `${name} added with ${workEntries.length} work(s) - Final: ₹${finalSalary.toFixed(2)}`
@@ -197,17 +271,23 @@ const LabourForm = ({ onLabourAdded }: LabourFormProps) => {
           <div className="space-y-2">
             <Label htmlFor="advance" className="text-sm md:text-base font-medium">
               Advance (₹)
+              {isFetchingAdvance && (
+                <span className="ml-2 text-xs text-muted-foreground">Loading...</span>
+              )}
             </Label>
             <Input
               id="advance"
               type="number"
-              placeholder="0.00"
-              min="0"
               step="0.01"
+              placeholder="0.00"
               value={advance}
               onChange={(e) => setAdvance(e.target.value)}
               className="input-field h-11"
+              disabled={isFetchingAdvance}
             />
+            <p className="text-xs text-muted-foreground">
+              Auto-filled from advance history. You can edit this amount.
+            </p>
           </div>
         </div>
 

@@ -7,6 +7,7 @@ import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 import Index from "./pages/Index";
 import WeeklyReportPage from "./pages/WeeklyReportPage";
 import IOReportPage from "./pages/IOReportPage";
+import LabourAdvancePage from "./pages/LabourAdvancePage";
 import NotFound from "./pages/NotFound";
 import Login from "./components/Login";
 
@@ -117,14 +118,16 @@ const App = () => (
                 <IOReportPage />
               </ProtectedRoute>
             }
-          />          <Route
-            path="/io-report"
+          />
+          <Route
+            path="/labour-advance"
             element={
               <ProtectedRoute>
-                <IOReportPage />
+                <LabourAdvancePage />
               </ProtectedRoute>
             }
-          />          {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
+          />
+          {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
           <Route path="*" element={<NotFound />} />
         </Routes>
       </BrowserRouter>

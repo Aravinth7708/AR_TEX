@@ -48,42 +48,53 @@ const LabourForm = ({ onLabourAdded }: LabourFormProps) => {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isFetchingAdvance, setIsFetchingAdvance] = useState(false);
 
-  // Fetch total advance amount when name changes
+  // Fetch total advance amount and phone number when name changes
   useEffect(() => {
-    const fetchAdvanceAmount = async () => {
+    const fetchLabourInfo = async () => {
       if (!name.trim()) {
         return;
       }
 
       setIsFetchingAdvance(true);
       try {
-        const { data, error } = await supabase
+        // Fetch advance amount
+        const { data: advanceData, error: advanceError } = await supabase
           .from("labour_advances")
           .select("advance_amount, paid_amount")
           .ilike("labour_name", name.trim());
 
-        if (error) throw error;
+        if (advanceError) throw advanceError;
 
-        if (data && data.length > 0) {
-          // Calculate total remaining balance (advance_amount - paid_amount)
-          const totalBalance = data.reduce((sum, record) => {
+        if (advanceData && advanceData.length > 0) {
+          const totalBalance = advanceData.reduce((sum, record) => {
             return sum + (record.advance_amount - (record.paid_amount || 0));
           }, 0);
           
           if (totalBalance > 0) {
             setAdvance(totalBalance.toFixed(2));
-            toast.info(`Found ₹${totalBalance.toFixed(2)} advance balance for ${name}`);
           }
         }
+
+        // Fetch phone number from labour profile
+        const { data: labourData, error: labourError } = await supabase
+          .from("labour_profiles")
+          .select("phone_number")
+          .ilike("name", name.trim())
+          .limit(1);
+
+        if (!labourError && labourData && labourData.length > 0 && labourData[0].phone_number) {
+          setPhoneNumber(labourData[0].phone_number);
+          toast.info(`Auto-filled phone number for ${name}`);
+        }
       } catch (error) {
-        console.error("Error fetching advance:", error);
+        console.error("Error fetching labour info:", error);
       } finally {
         setIsFetchingAdvance(false);
       }
     };
 
     // Debounce the fetch
-    const timeoutId = setTimeout(fetchAdvanceAmount, 500);
+    const timeoutId = setTimeout(fetchLabourInfo, 500);
     return () => clearTimeout(timeoutId);
   }, [name]);
 
@@ -159,6 +170,114 @@ const LabourForm = ({ onLabourAdded }: LabourFormProps) => {
       const { error } = await supabase.from("labours").insert(labourData);
 
       if (error) throw error;
+
+      // Get or create labour profile for salary history tracking
+      const { data: profileData, error: profileCheckError } = await supabase
+        .from("labour_profiles")
+        .select("id")
+        .ilike("name", name.trim())
+        .limit(1);
+
+      let labourProfileId: string | null = null;
+
+      if (profileCheckError) {
+        console.error("Error checking labour profile:", profileCheckError);
+      } else if (profileData && profileData.length > 0) {
+        labourProfileId = profileData[0].id;
+      }
+
+      // If profile doesn't exist, create it
+      if (!labourProfileId) {
+        const { data: newProfile, error: createError } = await supabase
+          .from("labour_profiles")
+          .insert({
+            name: name.trim(),
+            phone_number: phoneNumber.trim() || null,
+          })
+          .select("id")
+          .single();
+
+        if (!createError && newProfile) {
+          labourProfileId = newProfile.id;
+        } else {
+          console.error("Error creating labour profile:", createError);
+        }
+      }
+
+      // Create salary history entry if we have a profile ID
+      if (labourProfileId) {
+        // Get current week dates (Wednesday to Tuesday)
+        const getWeekDates = (date: Date) => {
+          const d = new Date(date);
+          const day = d.getDay();
+          let diff;
+          if (day >= 3) {
+            diff = day - 3;
+          } else {
+            diff = day + 4;
+          }
+          const wednesday = new Date(d.getFullYear(), d.getMonth(), d.getDate() - diff);
+          wednesday.setHours(0, 0, 0, 0);
+          const tuesday = new Date(wednesday);
+          tuesday.setDate(wednesday.getDate() + 6);
+          tuesday.setHours(23, 59, 59, 999);
+          return {
+            start: wednesday.toISOString().split('T')[0],
+            end: tuesday.toISOString().split('T')[0],
+          };
+        };
+
+        const weekDates = getWeekDates(new Date());
+
+        // Check if salary history entry already exists for this week
+        const { data: existingHistory, error: historyCheckError } = await supabase
+          .from("labour_salary_history")
+          .select("*")
+          .eq("labour_profile_id", labourProfileId)
+          .eq("week_start_date", weekDates.start)
+          .maybeSingle();
+
+        if (historyCheckError) {
+          console.error("Error checking salary history:", historyCheckError);
+        } else if (!existingHistory) {
+          // Entry doesn't exist, create new one
+          const { error: insertError } = await supabase
+            .from("labour_salary_history")
+            .insert({
+              labour_profile_id: labourProfileId,
+              week_start_date: weekDates.start,
+              week_end_date: weekDates.end,
+              weekly_salary: totalSalary,
+              weekly_advance: advanceAmount,
+              advance_paid: 0,
+              notes: `Work entries: ${workEntries.map(e => `${e.ioNo} - ${e.workType}`).join(', ')}`,
+            });
+
+          if (insertError) {
+            console.error("Error creating salary history:", insertError);
+          } else {
+            console.log("Salary history created successfully for", name.trim());
+          }
+        } else {
+          // Entry exists, update it by adding to existing values
+          const { error: updateError } = await supabase
+            .from("labour_salary_history")
+            .update({
+              weekly_salary: existingHistory.weekly_salary + totalSalary,
+              weekly_advance: existingHistory.weekly_advance + advanceAmount,
+              notes: existingHistory.notes 
+                ? `${existingHistory.notes} | ${workEntries.map(e => `${e.ioNo} - ${e.workType}`).join(', ')}`
+                : `Work entries: ${workEntries.map(e => `${e.ioNo} - ${e.workType}`).join(', ')}`,
+            })
+            .eq("id", existingHistory.id);
+
+          if (updateError) {
+            console.error("Error updating salary history:", updateError);
+          } else {
+            console.log("Salary history updated successfully for", name.trim());
+          }
+        }
+      }
 
       // If advance amount was used/paid, update the labour_advances records
       if (advanceAmount > 0) {

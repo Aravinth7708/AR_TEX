@@ -14,6 +14,89 @@ export type Database = {
   }
   public: {
     Tables: {
+      labour_profiles: {
+        Row: {
+          id: string
+          name: string
+          phone_number: string
+          created_at: string
+          updated_at: string
+          weekly_salary: number
+          weekly_advance: number
+          advance_paid: number
+          last_updated_week: string | null
+        }
+        Insert: {
+          id?: string
+          name: string
+          phone_number: string
+          created_at?: string
+          updated_at?: string
+          weekly_salary?: number
+          weekly_advance?: number
+          advance_paid?: number
+          last_updated_week?: string | null
+        }
+        Update: {
+          id?: string
+          name?: string
+          phone_number?: string
+          created_at?: string
+          updated_at?: string
+          weekly_salary?: number
+          weekly_advance?: number
+          advance_paid?: number
+          last_updated_week?: string | null
+        }
+        Relationships: []
+      }
+      labour_salary_history: {
+        Row: {
+          id: string
+          labour_profile_id: string
+          week_start_date: string
+          week_end_date: string
+          weekly_salary: number
+          weekly_advance: number
+          advance_paid: number
+          net_balance: number
+          notes: string | null
+          created_at: string
+          updated_at: string
+        }
+        Insert: {
+          id?: string
+          labour_profile_id: string
+          week_start_date: string
+          week_end_date: string
+          weekly_salary?: number
+          weekly_advance?: number
+          advance_paid?: number
+          notes?: string | null
+          created_at?: string
+          updated_at?: string
+        }
+        Update: {
+          id?: string
+          labour_profile_id?: string
+          week_start_date?: string
+          week_end_date?: string
+          weekly_salary?: number
+          weekly_advance?: number
+          advance_paid?: number
+          notes?: string | null
+          created_at?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "labour_salary_history_labour_profile_id_fkey"
+            columns: ["labour_profile_id"]
+            referencedRelation: "labour_profiles"
+            referencedColumns: ["id"]
+          }
+        ]
+      }
       labours: {
         Row: {
           advance?: number
@@ -28,6 +111,7 @@ export type Database = {
           esi_bf_amount?: number
           last_week_balance?: number
           extra_amount?: number
+          phone_number?: string | null
         }
         Insert: {
           advance?: number
@@ -42,6 +126,7 @@ export type Database = {
           esi_bf_amount?: number
           last_week_balance?: number
           extra_amount?: number
+          phone_number?: string | null
         }
         Update: {
           advance?: number
@@ -56,6 +141,7 @@ export type Database = {
           esi_bf_amount?: number
           last_week_balance?: number
           extra_amount?: number
+          phone_number?: string | null
         }
         Relationships: []
       }

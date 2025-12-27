@@ -8,6 +8,7 @@ import Index from "./pages/Index";
 import WeeklyReportPage from "./pages/WeeklyReportPage";
 import IOReportPage from "./pages/IOReportPage";
 import LabourAdvancePage from "./pages/LabourAdvancePage";
+import LabourProfilePage from "./pages/LabourProfilePage";
 import NotFound from "./pages/NotFound";
 import Login from "./components/Login";
 
@@ -124,6 +125,14 @@ const App = () => (
             element={
               <ProtectedRoute>
                 <LabourAdvancePage />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/labour-profile"
+            element={
+              <ProtectedRoute>
+                <LabourProfilePage />
               </ProtectedRoute>
             }
           />

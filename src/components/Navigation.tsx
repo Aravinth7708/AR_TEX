@@ -1,5 +1,5 @@
 import { Link, useLocation, useNavigate } from "react-router-dom";
-import { Home, Calendar, FileText, DollarSign, Menu, X, LogOut } from "lucide-react";
+import { Home, Calendar, FileText, DollarSign, Menu, X, LogOut, Users } from "lucide-react";
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
@@ -22,6 +22,7 @@ const Navigation = () => {
     { path: "/weekly-report", label: "Weekly Report", icon: Calendar },
     { path: "/io-report", label: "IO Report", icon: FileText },
     { path: "/labour-advance", label: "Labour Advance", icon: DollarSign },
+    { path: "/labour-profile", label: "Labour Profile", icon: Users },
   ];
 
   const isActive = (path: string) => location.pathname === path;
@@ -123,8 +124,8 @@ const Navigation = () => {
       </nav>
 
       {/* Bottom Mobile Navigation (for easier thumb access) */}
-      <div className="fixed bottom-0 left-0 right-0 z-50 md:hidden border-t border-border bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
-        <div className="flex items-center justify-around h-16 px-4">
+      <div className="fixed bottom-0 left-0 right-0 z-50 md:hidden border-t border-border bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60 safe-area-bottom">
+        <div className="grid grid-cols-5 h-16 px-1">
           {navItems.map((item) => {
             const Icon = item.icon;
             const active = isActive(item.path);
@@ -132,19 +133,19 @@ const Navigation = () => {
               <Link
                 key={item.path}
                 to={item.path}
-                className="flex flex-col items-center justify-center flex-1 h-full gap-1 transition-colors"
+                className="flex flex-col items-center justify-center gap-1 transition-all active:scale-95"
               >
                 <div
-                  className={`p-2 rounded-lg transition-colors ${
+                  className={`p-1.5 rounded-lg transition-all ${
                     active
-                      ? "bg-accent text-accent-foreground"
-                      : "text-muted-foreground hover:text-foreground"
+                      ? "bg-accent text-accent-foreground shadow-sm"
+                      : "text-muted-foreground hover:text-foreground hover:bg-accent/10"
                   }`}
                 >
-                  <Icon className="w-5 h-5" />
+                  <Icon className={`transition-all ${active ? "w-5 h-5" : "w-4.5 h-4.5"}`} />
                 </div>
                 <span
-                  className={`text-xs font-medium ${
+                  className={`text-[10px] font-medium leading-tight text-center transition-colors max-w-full truncate px-0.5 ${
                     active ? "text-accent" : "text-muted-foreground"
                   }`}
                 >

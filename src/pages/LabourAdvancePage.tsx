@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { Plus, Trash2, Edit, Calendar, DollarSign, CheckCircle2 } from "lucide-react";
+import { Plus, Trash2, Edit, Calendar, DollarSign, CheckCircle2, Info } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -34,6 +34,11 @@ import {
   AlertDialogTitle,
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from "@/components/ui/popover";
 
 type LabourAdvance = Database['public']['Tables']['labour_advances']['Row'];
 
@@ -324,7 +329,26 @@ const LabourAdvancePage = () => {
   };
 
   const renderAdvancesList = (advancesList: LabourAdvance[], showActions: boolean = true) => {
-    if (advancesList.length === 0) {
+    // Group advances by labour name
+    const groupedAdvances = advancesList.reduce((acc, advance) => {
+      const name = advance.labour_name;
+      if (!acc[name]) {
+        acc[name] = {
+          labour_name: name,
+          total_advance: 0,
+          total_paid: 0,
+          records: []
+        };
+      }
+      acc[name].total_advance += Number(advance.advance_amount);
+      acc[name].total_paid += Number(advance.paid_amount || 0);
+      acc[name].records.push(advance);
+      return acc;
+    }, {} as Record<string, { labour_name: string; total_advance: number; total_paid: number; records: LabourAdvance[] }>);
+
+    const mergedList = Object.values(groupedAdvances);
+
+    if (mergedList.length === 0) {
       return (
         <div className="text-center py-12">
           <DollarSign className="w-12 h-12 mx-auto text-muted-foreground mb-3" />
@@ -346,21 +370,22 @@ const LabourAdvancePage = () => {
                   <th className="text-right py-3 px-4 font-semibold whitespace-nowrap">Paid</th>
                   <th className="text-right py-3 px-4 font-semibold whitespace-nowrap">Balance</th>
                   <th className="text-center py-3 px-4 font-semibold whitespace-nowrap">Date</th>
-                  <th className="text-left py-3 px-4 font-semibold whitespace-nowrap">Notes</th>
+                  <th className="text-left py-3 px-4 font-semibold whitespace-nowrap">Notes/Info</th>
                   {showActions && <th className="text-center py-3 px-4 font-semibold whitespace-nowrap">Actions</th>}
                 </tr>
               </thead>
               <tbody>
-                {advancesList.map((advance) => {
-                  const paidAmount = advance.paid_amount || 0;
-                  const balance = advance.advance_amount - paidAmount;
+                {mergedList.map((group) => {
+                  const paidAmount = group.total_paid;
+                  const balance = group.total_advance - paidAmount;
                   const isFullyPaid = balance <= 0;
+                  const isMerged = group.records.length > 1;
 
                   return (
-                    <tr key={advance.id} className={`border-b border-border hover:bg-muted/50 ${isFullyPaid ? 'opacity-70' : ''}`}>
-                      <td className="py-3 px-4 font-medium">{advance.labour_name}</td>
+                    <tr key={group.labour_name} className={`border-b border-border hover:bg-muted/50 ${isFullyPaid ? 'opacity-70' : ''}`}>
+                      <td className="py-3 px-4 font-medium">{group.labour_name}</td>
                       <td className="py-3 px-4 text-right text-blue-600 font-semibold">
-                        ₹{Number(advance.advance_amount).toFixed(2)}
+                        ₹{group.total_advance.toFixed(2)}
                       </td>
                       <td className="py-3 px-4 text-right text-orange-600 font-semibold">
                         ₹{paidAmount.toFixed(2)}
@@ -375,47 +400,112 @@ const LabourAdvancePage = () => {
                           </span>
                         )}
                       </td>
-                      <td className="py-3 px-4 text-center text-sm text-muted-foreground">
-                        {new Date(advance.advance_date).toLocaleDateString("en-IN")}
+                      <td className="py-3 px-4 text-center text-sm text-muted-foreground whitespace-nowrap">
+                        {Array.from(new Set(group.records.map(r =>
+                          new Date(r.advance_date).toLocaleDateString("en-IN", { day: '2-digit', month: '2-digit' })
+                        ))).join(", ")}
                       </td>
                       <td className="py-3 px-4 text-sm text-muted-foreground">
-                        {advance.notes || "-"}
+                        <div className="flex items-center gap-2">
+                          <span className="truncate max-w-[150px]">
+                            {isMerged ? `${group.records.length} records merged` : (group.records[0].notes || "-")}
+                          </span>
+                          {isMerged && (
+                            <Popover>
+                              <PopoverTrigger asChild>
+                                <Button variant="ghost" size="sm" className="h-7 w-7 p-0">
+                                  <Info className="w-4 h-4 text-blue-500" />
+                                </Button>
+                              </PopoverTrigger>
+                              <PopoverContent className="w-80">
+                                <div className="space-y-3">
+                                  <h4 className="font-semibold text-sm border-b pb-2">Advance History (This Week)</h4>
+                                  <div className="max-h-[300px] overflow-y-auto space-y-2">
+                                    {group.records.map((record, idx) => (
+                                      <div key={record.id} className="text-xs p-2 bg-muted/50 rounded flex justify-between items-center group">
+                                        <div className="flex-1">
+                                          <p className="font-medium">{new Date(record.advance_date).toLocaleDateString("en-IN")}</p>
+                                          <p className="text-blue-600">₹{Number(record.advance_amount).toFixed(2)}</p>
+                                          {record.notes && <p className="text-muted-foreground italic mt-1 font-normal break-words">{record.notes}</p>}
+                                        </div>
+                                        {showActions && (
+                                          <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                                            <Button variant="ghost" size="sm" className="h-7 w-7 p-0" onClick={() => handleEdit(record)}>
+                                              <Edit className="w-3 h-3" />
+                                            </Button>
+                                            <AlertDialog>
+                                              <AlertDialogTrigger asChild>
+                                                <Button variant="ghost" size="sm" className="h-7 w-7 p-0">
+                                                  <Trash2 className="w-3 h-3 text-destructive" />
+                                                </Button>
+                                              </AlertDialogTrigger>
+                                              <AlertDialogContent>
+                                                <AlertDialogHeader>
+                                                  <AlertDialogTitle>Delete Advance?</AlertDialogTitle>
+                                                  <AlertDialogDescription>
+                                                    Are you sure you want to delete this record from {new Date(record.advance_date).toLocaleDateString("en-IN")}?
+                                                  </AlertDialogDescription>
+                                                </AlertDialogHeader>
+                                                <AlertDialogFooter>
+                                                  <AlertDialogCancel>Cancel</AlertDialogCancel>
+                                                  <AlertDialogAction onClick={() => handleDelete(record.id)} className="bg-destructive hover:bg-destructive/90">
+                                                    Delete
+                                                  </AlertDialogAction>
+                                                </AlertDialogFooter>
+                                              </AlertDialogContent>
+                                            </AlertDialog>
+                                          </div>
+                                        )}
+                                      </div>
+                                    ))}
+                                  </div>
+                                </div>
+                              </PopoverContent>
+                            </Popover>
+                          )}
+                        </div>
                       </td>
                       {showActions && (
                         <td className="py-3 px-4">
                           <div className="flex items-center justify-center gap-2">
-                            <Button
-                              variant="ghost"
-                              size="sm"
-                              onClick={() => handleEdit(advance)}
-                            >
-                              <Edit className="w-4 h-4" />
-                            </Button>
-                            <AlertDialog>
-                              <AlertDialogTrigger asChild>
-                                <Button variant="ghost" size="sm">
-                                  <Trash2 className="w-4 h-4 text-destructive" />
+                            {isMerged ? (
+                              <span className="text-xs text-muted-foreground">Manage via Info</span>
+                            ) : (
+                              <>
+                                <Button
+                                  variant="ghost"
+                                  size="sm"
+                                  onClick={() => handleEdit(group.records[0])}
+                                >
+                                  <Edit className="w-4 h-4" />
                                 </Button>
-                              </AlertDialogTrigger>
-                              <AlertDialogContent>
-                                <AlertDialogHeader>
-                                  <AlertDialogTitle>Delete Advance?</AlertDialogTitle>
-                                  <AlertDialogDescription>
-                                    This will permanently delete the advance record for{" "}
-                                    {advance.labour_name}. This action cannot be undone.
-                                  </AlertDialogDescription>
-                                </AlertDialogHeader>
-                                <AlertDialogFooter>
-                                  <AlertDialogCancel>Cancel</AlertDialogCancel>
-                                  <AlertDialogAction
-                                    onClick={() => handleDelete(advance.id)}
-                                    className="bg-destructive hover:bg-destructive/90"
-                                  >
-                                    Delete
-                                  </AlertDialogAction>
-                                </AlertDialogFooter>
-                              </AlertDialogContent>
-                            </AlertDialog>
+                                <AlertDialog>
+                                  <AlertDialogTrigger asChild>
+                                    <Button variant="ghost" size="sm">
+                                      <Trash2 className="w-4 h-4 text-destructive" />
+                                    </Button>
+                                  </AlertDialogTrigger>
+                                  <AlertDialogContent>
+                                    <AlertDialogHeader>
+                                      <AlertDialogTitle>Delete Advance?</AlertDialogTitle>
+                                      <AlertDialogDescription>
+                                        This will permanently delete the advance record for{" "}
+                                        {group.labour_name}. This action cannot be undone.
+                                      </AlertDialogDescription>
+                                    </AlertDialogHeader>
+                                    <AlertDialogFooter>
+                                      <AlertDialogCancel>Cancel</AlertDialogCancel>
+                                      <AlertDialogAction
+                                        onClick={() => handleDelete(group.records[0].id)}
+                                        className="bg-destructive hover:bg-destructive/90"
+                                      >
+                                        Delete
+                                      </AlertDialogAction>
+                                    </AlertDialogFooter>
+                                  </AlertDialogContent>
+                                </AlertDialog>
+                              </>
+                            )}
                           </div>
                         </td>
                       )}
@@ -429,22 +519,80 @@ const LabourAdvancePage = () => {
 
         {/* Mobile Cards */}
         <div className="md:hidden space-y-3">
-          {advancesList.map((advance) => {
-            const paidAmount = advance.paid_amount || 0;
-            const balance = advance.advance_amount - paidAmount;
+          {mergedList.map((group) => {
+            const paidAmount = group.total_paid;
+            const balance = group.total_advance - paidAmount;
             const isFullyPaid = balance <= 0;
+            const isMerged = group.records.length > 1;
 
             return (
-              <div key={advance.id} className={`border border-border rounded-lg p-3 space-y-3 ${isFullyPaid ? 'bg-muted/30' : ''}`}>
+              <div key={group.labour_name} className={`border border-border rounded-lg p-3 space-y-3 ${isFullyPaid ? 'bg-muted/30' : ''}`}>
                 {/* Header with Name and Actions */}
                 <div className="flex justify-between items-start gap-2">
-                  <h3 className="font-semibold text-base flex-1">{advance.labour_name}</h3>
-                  {showActions && (
+                  <div className="flex items-center gap-2">
+                    <h3 className="font-semibold text-base">{group.labour_name}</h3>
+                    {isMerged && (
+                      <Popover>
+                        <PopoverTrigger asChild>
+                          <Button variant="outline" size="sm" className="h-6 px-1.5 gap-1 text-[10px]">
+                            <Info className="w-3 h-3 text-blue-500" />
+                            {group.records.length} Records
+                          </Button>
+                        </PopoverTrigger>
+                        <PopoverContent className="w-[calc(100vw-32px)] max-w-sm ml-4">
+                          <div className="space-y-3">
+                            <h4 className="font-semibold text-sm border-b pb-2">Advance History</h4>
+                            <div className="max-h-[300px] overflow-y-auto space-y-2">
+                              {group.records.map((record) => (
+                                <div key={record.id} className="text-xs p-2 bg-muted/50 rounded flex justify-between items-center">
+                                  <div>
+                                    <p className="font-medium">{new Date(record.advance_date).toLocaleDateString("en-IN")}</p>
+                                    <p className="text-blue-600 font-bold">₹{Number(record.advance_amount).toFixed(2)}</p>
+                                    {record.notes && <p className="text-muted-foreground italic mt-1">{record.notes}</p>}
+                                  </div>
+                                  {showActions && (
+                                    <div className="flex gap-1">
+                                      <Button variant="ghost" size="sm" className="h-8 w-8 p-0" onClick={() => handleEdit(record)}>
+                                        <Edit className="w-4 h-4" />
+                                      </Button>
+                                      <AlertDialog>
+                                        <AlertDialogTrigger asChild>
+                                          <Button variant="ghost" size="sm" className="h-8 w-8 p-0">
+                                            <Trash2 className="w-4 h-4 text-destructive" />
+                                          </Button>
+                                        </AlertDialogTrigger>
+                                        <AlertDialogContent className="w-[90vw] max-w-sm rounded-lg">
+                                          <AlertDialogHeader>
+                                            <AlertDialogTitle>Delete Advance?</AlertDialogTitle>
+                                            <AlertDialogDescription>
+                                              Delete record from {new Date(record.advance_date).toLocaleDateString("en-IN")}?
+                                            </AlertDialogDescription>
+                                          </AlertDialogHeader>
+                                          <AlertDialogFooter className="flex-row gap-2">
+                                            <AlertDialogCancel className="mt-0 flex-1">Cancel</AlertDialogCancel>
+                                            <AlertDialogAction onClick={() => handleDelete(record.id)} className="bg-destructive hover:bg-destructive/90 flex-1">
+                                              Delete
+                                            </AlertDialogAction>
+                                          </AlertDialogFooter>
+                                        </AlertDialogContent>
+                                      </AlertDialog>
+                                    </div>
+                                  )}
+                                </div>
+                              ))}
+                            </div>
+                          </div>
+                        </PopoverContent>
+                      </Popover>
+                    )}
+                  </div>
+
+                  {showActions && !isMerged && (
                     <div className="flex gap-1 flex-shrink-0">
                       <Button
                         variant="ghost"
                         size="sm"
-                        onClick={() => handleEdit(advance)}
+                        onClick={() => handleEdit(group.records[0])}
                         className="h-8 w-8 p-0"
                       >
                         <Edit className="w-4 h-4" />
@@ -455,19 +603,19 @@ const LabourAdvancePage = () => {
                             <Trash2 className="w-4 h-4 text-destructive" />
                           </Button>
                         </AlertDialogTrigger>
-                        <AlertDialogContent>
+                        <AlertDialogContent className="w-[90vw] max-w-sm rounded-lg">
                           <AlertDialogHeader>
                             <AlertDialogTitle>Delete Advance?</AlertDialogTitle>
                             <AlertDialogDescription>
                               This will permanently delete the advance record for{" "}
-                              {advance.labour_name}. This action cannot be undone.
+                              {group.labour_name}.
                             </AlertDialogDescription>
                           </AlertDialogHeader>
-                          <AlertDialogFooter>
-                            <AlertDialogCancel>Cancel</AlertDialogCancel>
+                          <AlertDialogFooter className="flex-row gap-2">
+                            <AlertDialogCancel className="mt-0 flex-1">Cancel</AlertDialogCancel>
                             <AlertDialogAction
-                              onClick={() => handleDelete(advance.id)}
-                              className="bg-destructive hover:bg-destructive/90"
+                              onClick={() => handleDelete(group.records[0].id)}
+                              className="bg-destructive hover:bg-destructive/90 flex-1"
                             >
                               Delete
                             </AlertDialogAction>
@@ -483,7 +631,7 @@ const LabourAdvancePage = () => {
                   <div className="text-center p-2 bg-blue-50 dark:bg-blue-950 rounded-lg">
                     <p className="text-xs text-muted-foreground mb-1">Advance</p>
                     <p className="text-sm font-bold text-blue-600 break-words">
-                      ₹{Number(advance.advance_amount).toFixed(2)}
+                      ₹{group.total_advance.toFixed(2)}
                     </p>
                   </div>
                   <div className="text-center p-2 bg-orange-50 dark:bg-orange-950 rounded-lg">
@@ -514,10 +662,15 @@ const LabourAdvancePage = () => {
                 <div className="pt-2 border-t border-border space-y-1">
                   <div className="flex items-center gap-2 text-xs text-muted-foreground">
                     <Calendar className="w-3 h-3" />
-                    {new Date(advance.advance_date).toLocaleDateString("en-IN")}
+                    {Array.from(new Set(group.records.map(r =>
+                      new Date(r.advance_date).toLocaleDateString("en-IN", { day: '2-digit', month: '2-digit' })
+                    ))).join(", ")}
                   </div>
-                  {advance.notes && (
-                    <p className="text-xs text-muted-foreground line-clamp-2">{advance.notes}</p>
+                  {!isMerged && group.records[0].notes && (
+                    <p className="text-xs text-muted-foreground line-clamp-2">{group.records[0].notes}</p>
+                  )}
+                  {isMerged && (
+                    <p className="text-xs text-muted-foreground italic">{group.records.length} advances merged for this week.</p>
                   )}
                 </div>
               </div>
